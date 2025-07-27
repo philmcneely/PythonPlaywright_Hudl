@@ -57,7 +57,36 @@ if [ ! -d ".venv" ]; then
   python3 -m venv .venv
 fi
 
-source .venv/bin/activate
+#don't forget to install 
+#https://visualstudio.microsoft.com/visual-cpp-build-tools/
+
+# Cross-platform virtual environment activation
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    # Windows (Git Bash, MSYS2, Cygwin)
+    echo "🪟 Detected Windows environment"
+    cmd.exe /c ".venv/Scripts/activate.bat" #can't get this to work
+    # .ps1 for powershell as well
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    echo "🍎 Detected macOS environment"
+    source .venv/bin/activate
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    # Linux
+    echo "🐧 Detected Linux environment"
+    source .venv/bin/activate
+else
+    # Default to Unix-style (covers most cases)
+    echo "🔧 Using default Unix-style activation"
+    source .venv/bin/activate
+fi
+
+# Verify activation worked
+if [[ -n "$VIRTUAL_ENV" ]]; then
+    echo "✅ Virtual environment activated: $VIRTUAL_ENV"
+else
+    echo "❌ Failed to activate virtual environment"
+    exit 1
+fi
 
 # Install dependencies
 pip install --upgrade pip

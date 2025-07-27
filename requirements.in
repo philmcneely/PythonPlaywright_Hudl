@@ -12,3 +12,4 @@ playwright
 httpx
 pytest-asyncio
 pytest-xdist
+allure-pytest

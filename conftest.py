@@ -27,6 +27,6 @@ async def page():
         context = await browser.new_context()
         page = await context.new_page()
 
-        print(f"\n🚀 Using {browser_name} browser (headless={headless})")
+        print(f"\n Using {browser_name} browser (headless={headless})")
         yield page
         await browser.close()

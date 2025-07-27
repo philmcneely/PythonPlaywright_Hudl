@@ -11,12 +11,7 @@ load_dotenv()
 
 class Settings:
     """Application settings loaded from environment variables."""
-    
-    # Base Configuration
-    BASE_URL: str = os.getenv("BASE_URL", "https://www.hudl.com/")
-    TEST_EMAIL: str = os.getenv("TEST_EMAIL", "")
-    TEST_PASSWORD: str = os.getenv("TEST_PASSWORD", "")
-    
+
     # Browser Configuration
     BROWSER: str = os.getenv("BROWSER", "chromium")
     HEADLESS: bool = os.getenv("HEADLESS", "false").lower() == "true"
@@ -31,19 +26,6 @@ class Settings:
     
     # Allure Configuration
     ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
-    
-    @classmethod
-    def validate_required_settings(cls) -> None:
-        """Validate that required settings are present."""
-        required_settings = ["TEST_EMAIL", "TEST_PASSWORD"]
-        missing_settings = []
-        
-        for setting in required_settings:
-            if not getattr(cls, setting):
-                missing_settings.append(setting)
-        
-        if missing_settings:
-            raise ValueError(f"Missing required environment variables: {', '.join(missing_settings)}")
     
     @classmethod
     def get_browser_options(cls) -> dict:
