@@ -36,6 +36,7 @@ Author: PMAC
 Date: [2025-07-27]
 ===============================================================================
 """
+from data.personas import PERSONAS
 
 class DashboardPage:
     def __init__(self, page):
@@ -127,9 +128,16 @@ class DashboardPage:
         await self.logout_link.click()
 
     async def get_user_profile_info(self):
-        """Click avatar and return (initials, name, email) as a tuple."""
-        await self.click_user_avatar()
+        """Return avatar (initials, name, email) as a tuple."""
+        #await self.click_user_avatar()
         initials = await self.get_user_initials_text()
         name = await self.get_user_name_text()
         email = await self.get_user_email_text()
         return initials, name, email
+
+    async def verify_user_profile_info(self):
+        """Retrieve and validate user profile information"""
+        initials, name, email = await self.get_user_profile_info()
+        assert initials == f"{PERSONAS['user']['first_name'][0]}{PERSONAS['user']['last_name'][0]}"
+        assert name == f"{PERSONAS['user']['first_name']} {PERSONAS['user']['last_name'][0]}"
+        assert email == PERSONAS["user"]["email"]

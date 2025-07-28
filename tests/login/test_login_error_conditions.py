@@ -22,6 +22,8 @@ Conventions:
     - Comments explain the purpose and steps of each test.
     - Assertions check for expected error messages and UI behavior.
 
+Todo: move to using the data.test_data file to populate the conditions, for now hardcoded
+
 Author: PMAC
 Date: [2025-07-27]
 ===============================================================================
@@ -46,7 +48,7 @@ async def test_login_invalid_password(app):
     Verifies that the appropriate error message is displayed.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
     await app.login_page.enter_password("wrongpassword")
     await app.login_page.click_continue()
@@ -95,7 +97,7 @@ async def test_account_blocked_after_multiple_attempts(app):
     # Simulate multiple failed login attempts (assuming 10+ attempts trigger the block) #hrmmmmm blocked myslef but this 10 doesnt seem to work, need to fix?
     for _ in range(11):
         await app.login_page.load_login_direct()
-        await app.login_page.enter_email(PERSONAS["pm"]["email"])
+        await app.login_page.enter_email(PERSONAS["user"]["email"])
         await app.login_page.click_continue()
         await app.login_page.enter_password("wrongpassword")
         await app.login_page.click_continue()
@@ -197,12 +199,11 @@ async def test_login_edit_invalid_account(app):
     assert await app.login_page.password_textbox.is_visible()
     # Edit the email to a valid account
     await app.login_page.edit_email_link.click()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["pm"]["password"])
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    # Verify successful login by checking for user heading
-    await app.login_page.page.get_by_role("heading", name="PM").click()
+    await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Malformed Email with Special Characters
@@ -285,7 +286,7 @@ async def test_password_shown_when_button_clicked(app):
     and can be revealed when the show password button is clicked.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
     await app.login_page.enter_password("supersecret")
 

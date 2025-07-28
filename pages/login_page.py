@@ -115,11 +115,18 @@ class LoginPage(BasePage):
     # =====================================
     # Convenience Methods
     # =====================================
-    async def fill_email_and_password(self, email: str, password: str):
-        """Fill both the email and password fields in one step."""
+    async def fill_email_and_password_without_submit(self, email: str, password: str):
+        """Fill both the email and password fields in one step but do not submit."""
         await self.enter_email(email)
         await self.click_continue()  # Navigate to password field
         await self.enter_password(password)
+
+    async def fill_email_and_password_submit(self, email: str, password: str):
+        """Fill both the email and password fields in one step and submit."""
+        await self.enter_email(email)
+        await self.click_continue()  # Navigate to password field
+        await self.enter_password(password)
+        await self.click_continue() 
 
     # =====================================
     # Page Navigation
