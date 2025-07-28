@@ -71,6 +71,8 @@ jobs:
           mkdir -p screenshots
           HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4  || true
 
+      - name: Generate Test Results
+        run: allure generate allure-results -o allure-report --clean --single-file
 
       - name: Upload test report & screenshots
         if: always()
