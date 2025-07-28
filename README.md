@@ -151,13 +151,21 @@ ENV_FILE=.env.test pytest ...
 
 ## 8. Run the Tests
 
-Run your tests with pytest. For example, to run smoke tests with Allure reporting and reruns:
+Run your tests with pytest. For example, to run smoke tests with Allure reporting, reruns and in parallel:
 
 ```sh
-pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4
+pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 ```
 
 - Adjust the `-m smoke` marker or other pytest options as needed.
+
+You can also pass env vars on the commandline, for example if you want headed tests or a different browser.
+
+```sh
+BROWSER=firefox HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+```
+
+Adjust as needed.
 
 ---
 
@@ -186,6 +194,12 @@ xdg-open allure-report/index.html
 **Windows:**
 
 Open `allure-report\index.html` in your browser.
+
+---
+
+## 11. Github Actions
+
+Everything is already configured to run a smoke test, then if that passes it will run the full 'login' test suite. All secrets are configured on the repo level, so if you add any, you will need to update the config.
 
 ---
 

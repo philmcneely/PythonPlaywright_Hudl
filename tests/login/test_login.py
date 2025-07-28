@@ -30,7 +30,6 @@ Date: [2025-07-27]
 
 import pytest
 from pages.login_page import LoginPage
-from config.settings import settings
 from pages.privacy_page import PrivacyPolicyPage
 from pages.terms_page import TermsPage
 from data.personas import PERSONAS

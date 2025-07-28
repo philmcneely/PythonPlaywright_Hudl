@@ -49,7 +49,6 @@ Date: [2025-07-26]
 ===============================================================================
 """
 from .base_page import BasePage
-from config.settings import settings
 
 class LoginPage(BasePage):
 

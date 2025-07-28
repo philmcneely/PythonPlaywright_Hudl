@@ -36,11 +36,6 @@ Author: PMAC
 Date: [2025-07-27]
 ===============================================================================
 """
-from contextlib import asynccontextmanager
-import datetime
-import allure
-import os
-from pathlib import Path
 from playwright.async_api import Page
 
 class BasePage:

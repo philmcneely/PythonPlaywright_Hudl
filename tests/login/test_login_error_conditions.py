@@ -30,8 +30,6 @@ Date: [2025-07-27]
 """
 
 import pytest
-from pages.login_page import LoginPage
-from config.settings import settings
 from data.personas import PERSONAS
 from utils.screenshot_decorator import screenshot_on_failure
 
