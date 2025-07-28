@@ -128,6 +128,7 @@ jobs:
           HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 
       - name: Generate Test Results
+        if: always()
         run: |
           allure generate allure-results -o allure-report --clean --single-file
           mv allure-report/index.html allure-report/index_smoke.html
@@ -230,6 +231,7 @@ jobs:
           HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m login -n auto
       
       - name: Generate Test Results
+        if: always()
         run: |
           allure generate allure-results -o allure-report --clean --single-file
           mv allure-report/index.html allure-report/index_full.html
