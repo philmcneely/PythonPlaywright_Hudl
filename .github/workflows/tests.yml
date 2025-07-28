@@ -76,8 +76,8 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: hudl-test-results-${{ github.run_id }}
-          path: test-results/
+          name: index.html
+          path: allure-report/
 
       - name: Comment PR with test summary
         if: github.event_name == 'pull_request'
