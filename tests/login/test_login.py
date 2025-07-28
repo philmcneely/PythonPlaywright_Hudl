@@ -41,8 +41,7 @@ from utils.screenshot_decorator import screenshot_on_failure
 # ------------------------------------------------------------------------------
 
 @screenshot_on_failure
-@pytest.mark.smoke
-@pytest.mark.login
+@pytest.mark.fail
 @pytest.mark.asyncio
 async def test_login_direct_fail(app,request):
     """
