@@ -7,7 +7,10 @@ from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+env = os.getenv("ENV", "dev")  # default to 'dev' if ENV is not set
+dotenv_file = f".env.{env}"
+load_dotenv(".env")  # always load base first
+load_dotenv(dotenv_file, override=True)
 
 class Settings:
     """Application settings loaded from environment variables."""

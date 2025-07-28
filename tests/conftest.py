@@ -34,11 +34,7 @@ Date: [2025-07-27]
 import pytest
 from pages.login_page import LoginPage
 import os
-from dotenv import load_dotenv
 from pages.app import App
-
-# Load environment variables once at module level
-load_dotenv()
 
 # ------------------------------------------------------------------------------
 # Login Page Fixture with Auto-Navigation
