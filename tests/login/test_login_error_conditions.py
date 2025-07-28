@@ -201,7 +201,7 @@ async def test_login_edit_invalid_account(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    await app.login_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Malformed Email with Special Characters

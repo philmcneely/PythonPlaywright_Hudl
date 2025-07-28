@@ -34,7 +34,6 @@ from config.settings import settings
 from pages.privacy_page import PrivacyPolicyPage
 from pages.terms_page import TermsPage
 from data.personas import PERSONAS
-from pages.dashboard_page import DashboardPage
 from utils.screenshot_decorator import screenshot_on_failure
 
 # ------------------------------------------------------------------------------
@@ -75,7 +74,7 @@ async def test_login_from_home_valid_credentials(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    await app.login_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Direct Login with Valid Credentials
@@ -95,7 +94,7 @@ async def test_login_direct_valid_credentials(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    await app.login_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Direct Login with Valid Credentials then Logout (could be combined with above)
@@ -117,7 +116,7 @@ async def test_login_direct_valid_credentials_then_logut(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    await app.login_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
     await app.dashboard_page.click_logout()
     await app.login_page.load_home()
     await app.login_page.email_textbox.is_visible()
