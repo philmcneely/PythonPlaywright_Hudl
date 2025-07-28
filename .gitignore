@@ -40,3 +40,4 @@ reset_env.sh
 utils/upload_secrets.sh
 requirements.*
 utils/helpers.py
+run_tests.sh
