@@ -5,6 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+    types: [opened, reopened, synchronize]
 
 jobs:
   test:
@@ -86,10 +87,9 @@ jobs:
         if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const summary = fs.existsSync('test-results/report.html')
+            const summary = fs.existsSync('allure-report/index.html')
               ? '✅ Tests completed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
               : '❌ Test report not found.';
             github.rest.issues.createComment({
