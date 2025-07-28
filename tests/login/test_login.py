@@ -71,15 +71,11 @@ async def test_login_from_home_valid_credentials(app):
     await app.login_page.load_home()
     await app.login_page.click_login_link()
     await app.login_page.click_second_hudl_link()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["pm"]["password"])
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    # Retrieve and validate user profile information
-    initials, name, email = await app.dashboard_page.get_user_profile_info()
-    assert initials == f"{PERSONAS['pm']['first_name'][0]}{PERSONAS['pm']['last_name'][0]}"
-    assert name == f"{PERSONAS['pm']['first_name']} {PERSONAS['pm']['last_name'][0]}"
-    assert email == PERSONAS["pm"]["email"]
+    await app.login_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Direct Login with Valid Credentials
@@ -95,15 +91,11 @@ async def test_login_direct_valid_credentials(app):
     Verifies successful login and validates user profile information on dashboard.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["pm"]["password"])
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    # Retrieve and validate user profile information
-    initials, name, email = await app.dashboard_page.get_user_profile_info()
-    assert initials == f"{PERSONAS['pm']['first_name'][0]}{PERSONAS['pm']['last_name'][0]}"
-    assert name == f"{PERSONAS['pm']['first_name']} {PERSONAS['pm']['last_name'][0]}"
-    assert email == PERSONAS["pm"]["email"]
+    await app.login_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
 # Test: Direct Login with Valid Credentials then Logout (could be combined with above)
@@ -118,20 +110,14 @@ async def test_login_direct_valid_credentials_then_logut(app):
     Test direct login navigation with valid credentials.
     Verifies successful login and validates user profile information on dashboard.
     Logs out
-    Verifies cannot see dashboard any longer
+    Verifies login available and dash doesnt load
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["pm"]["password"])
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
-    
-    # Retrieve and validate user profile information
-    initials, name, email = await app.dashboard_page.get_user_profile_info()
-    assert initials == f"{PERSONAS['pm']['first_name'][0]}{PERSONAS['pm']['last_name'][0]}"
-    assert name == f"{PERSONAS['pm']['first_name']} {PERSONAS['pm']['last_name'][0]}"
-    assert email == PERSONAS["pm"]["email"]
-
+    await app.login_page.verify_user_profile_info()
     await app.dashboard_page.click_logout()
     await app.login_page.load_home()
     await app.login_page.email_textbox.is_visible()
@@ -150,13 +136,13 @@ async def test_forgot_password_email_verification(app):
     Stops before actually sending the reset email to avoid system pollution.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
     # Verify password field is visible before proceeding to reset
     assert await app.login_page.password_textbox.is_visible()
     await app.login_page.reset_password_link.click()
     # Verify email is pre-populated in the reset form
-    await app.login_page.get_email_text() == PERSONAS["pm"]["email"]
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
     # Note: Actual email sending is not tested to avoid system pollution
 
     #click link to continue
@@ -176,19 +162,19 @@ async def test_forgot_password_go_back(app):
     Verifies that users can navigate back from the reset password screen.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["pm"]["email"])
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
     await app.login_page.click_continue()
     # Verify password field is visible
     assert await app.login_page.password_textbox.is_visible()
     
     # Navigate to reset password screen
     await app.login_page.reset_password_link.click()
-    await app.login_page.get_email_text() == PERSONAS["pm"]["email"]
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
     assert await app.login_page.reset_password_heading.is_visible()
     
     # Navigate back to login screen
     await app.login_page.go_back_reset_link.click()
-    await app.login_page.get_email_text() == PERSONAS["pm"]["email"]
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
 
 # ------------------------------------------------------------------------------
 # Test: Privacy Policy Link Navigation

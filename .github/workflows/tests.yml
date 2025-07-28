@@ -94,12 +94,14 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const summary = fs.existsSync('allure-report/index.html')
-              ? '✅ Tests completed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Test report not found.';
+            const summary = status === 'success'
+              ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+              : '❌ Some tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: summary
             })
+        env:
+          JOB_STATUS: ${{ job.status }}

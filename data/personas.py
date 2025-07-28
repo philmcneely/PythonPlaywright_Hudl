@@ -46,7 +46,7 @@ import os
 # ------------------------------------------------------------------------------
 
 PERSONAS = {
-    "pm": {
+    "user": {
         "email": os.getenv("USER_PM_EMAIL"),
         "password": os.getenv("USER_PM_PASSWORD"),
         "role": os.getenv("USER_PM_ROLE"),

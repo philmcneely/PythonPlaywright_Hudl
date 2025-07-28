@@ -37,6 +37,9 @@ Date: [2025-07-27]
 ===============================================================================
 """
 
+from personas import PERSONAS
+
+
 class DashboardPage:
     def __init__(self, page):
         self.page = page
@@ -133,3 +136,10 @@ class DashboardPage:
         name = await self.get_user_name_text()
         email = await self.get_user_email_text()
         return initials, name, email
+
+async def verify_user_profile_info(self):
+    """Retrieve and validate user profile information"""
+    initials, name, email = await app.dashboard_page.get_user_profile_info()
+    assert initials == f"{PERSONAS['user']['first_name'][0]}{PERSONAS['user']['last_name'][0]}"
+    assert name == f"{PERSONAS['user']['first_name']} {PERSONAS['user']['last_name'][0]}"
+    assert email == PERSONAS["user"]["email"]
