@@ -94,6 +94,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            const status = process.env.JOB_STATUS || 'unknown';
             const summary = status === 'success'
               ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
               : '❌ Some tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';

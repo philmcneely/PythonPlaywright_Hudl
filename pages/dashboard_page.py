@@ -37,7 +37,7 @@ Date: [2025-07-27]
 ===============================================================================
 """
 
-from personas import PERSONAS
+from data.personas import PERSONAS
 
 
 class DashboardPage:
