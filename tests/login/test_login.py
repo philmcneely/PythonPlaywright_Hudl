@@ -49,11 +49,7 @@ async def test_login_direct_fail(app,request):
     Test direct login navigation and fails
     """
     await app.login_page.load_login_direct()
-    # Only fail on the first run
-    rerun = getattr(request.node, "rerun", 0)
-    print(f"Rerun attempt: {rerun}")
-    if rerun == 0:
-        assert False, "This will trigger a screenshot"
+    assert False, "This will trigger a screenshot"
 
 # ------------------------------------------------------------------------------
 # Test: Login from Homepage Navigation
@@ -90,10 +86,7 @@ async def test_login_direct_valid_credentials(app):
     Verifies successful login and validates user profile information on dashboard.
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["user"]["email"])
-    await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["user"]["password"])
-    await app.login_page.click_continue()
+    await app.login_page.fill_email_and_password_submit(PERSONAS["user"]["email"],PERSONAS["user"]["password"])
     await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
@@ -112,11 +105,9 @@ async def test_login_direct_valid_credentials_then_logut(app):
     Verifies login available and dash doesnt load
     """
     await app.login_page.load_login_direct()
-    await app.login_page.enter_email(PERSONAS["user"]["email"])
-    await app.login_page.click_continue()
-    await app.login_page.enter_password(PERSONAS["user"]["password"])
-    await app.login_page.click_continue()
+    await app.login_page.fill_email_and_password_submit(PERSONAS["user"]["email"],PERSONAS["user"]["password"])
     await app.dashboard_page.verify_user_profile_info()
+    await app.dashboard_page.click_user_avatar()
     await app.dashboard_page.click_logout()
     await app.login_page.load_home()
     await app.login_page.email_textbox.is_visible()
