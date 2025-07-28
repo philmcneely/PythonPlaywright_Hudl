@@ -2,8 +2,9 @@ name: Run Hudl Login Tests
 
 on:
   push:
-    branches: [main]
+    branches: [ main, master ]
   pull_request:
+    branches: [ main, master ]
 
 jobs:
   test:
@@ -82,7 +83,7 @@ jobs:
           path: allure-report/
 
       - name: Comment PR with test summary
-        if: github.event_name == 'pull_request'
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
