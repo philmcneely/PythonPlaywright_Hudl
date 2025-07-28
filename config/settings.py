@@ -3,7 +3,6 @@ Configuration settings for the test framework.
 Loads environment variables and provides default values.
 """
 import os
-from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file

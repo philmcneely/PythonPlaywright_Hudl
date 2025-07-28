@@ -33,7 +33,6 @@ Date: [2025-07-27]
 
 import pytest
 from pages.login_page import LoginPage
-import os
 from pages.app import App
 
 # ------------------------------------------------------------------------------

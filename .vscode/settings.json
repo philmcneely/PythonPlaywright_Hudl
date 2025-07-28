@@ -2,5 +2,11 @@
     "python.analysis.extraPaths": [
         "./pages",
         "./data"
-    ]
+    ],
+    "python.analysis.fixAll": ["source.unusedImports"],
+    "editor.codeActionsOnSave": {
+        "source.unusedImports": true,
+        "source.organizeImports": true // Optional: Also sorts imports on save
+    },
+    "python.languageServer": "Pylance" // Ensure Pylance is the active language server
 }
