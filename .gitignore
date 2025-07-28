@@ -38,3 +38,5 @@ chenge_python.sh
 chromium_test.py
 reset_env.sh
 utils/upload_secrets.sh
+requirementsx.*
+utils/helpersx.py
