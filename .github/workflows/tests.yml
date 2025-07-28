@@ -50,14 +50,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements_with_versions.txt
           python -m playwright install --with-deps
           pip install pytest-html pytest-rerunfailures
 
       - name: Run tests and collect report
         run: |
-          mkdir -p test-results/screenshots
-          pytest --reruns 2 --reruns-delay 5 --html=test-results/report.html --self-contained-html --capture=tee-sys || true
+          mkdir -p allure-report
+          mkdir -p allure-results
+          mkdir -p screenshots
+          pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4  || true
+
 
       - name: Upload test report & screenshots
         if: always()
