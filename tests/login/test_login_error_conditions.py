@@ -22,6 +22,8 @@ Conventions:
     - Comments explain the purpose and steps of each test.
     - Assertions check for expected error messages and UI behavior.
 
+Todo: move to using the data.test_data file to populate the conditions, for now hardcoded
+
 Author: PMAC
 Date: [2025-07-27]
 ===============================================================================

@@ -1,4 +1,4 @@
-# tests/test_smoke.py
+"""Smoke test to verify framework running after Chromium broke"""
 import pytest
 
 @pytest.mark.only

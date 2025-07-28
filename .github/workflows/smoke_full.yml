@@ -1,262 +1,4 @@
-# name: Playwright Tests
-
-# on:
-#   push:
-#     branches: [ main, master ]
-#   pull_request:
-#     branches: [ main, master ]
-#     types: [opened, reopened, synchronize]
-
-# permissions:
-#   contents: read
-#   issues: write
-#   pull-requests: write
-
-# jobs:
-#   setup:
-#     runs-on: ubuntu-latest
-#     outputs:
-#       python-cache-key: ${{ steps.cache-key.outputs.key }}
-#     steps:
-#       - uses: actions/checkout@v4
-      
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.11'
-      
-#       - name: Generate cache key
-#         id: cache-key
-#         run: echo "key=python-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}" >> $GITHUB_OUTPUT
-      
-#       - name: Cache Python dependencies
-#         uses: actions/cache@v3
-#         id: cache-deps
-#         with:
-#           path: ~/.cache/pip
-#           key: ${{ steps.cache-key.outputs.key }}
-#           restore-keys: |
-#             python-${{ runner.os }}-
-      
-#       - name: Install Python dependencies
-#         if: steps.cache-deps.outputs.cache-hit != 'true'
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install -r requirements_with_versions.txt
-      
-#       - name: Cache Playwright browsers
-#         uses: actions/cache@v3
-#         id: cache-browsers
-#         with:
-#           path: ~/.cache/ms-playwright
-#           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
-#           restore-keys: |
-#             playwright-browsers-${{ runner.os }}-
-      
-#       - name: Install Playwright browsers
-#         if: steps.cache-browsers.outputs.cache-hit != 'true'
-#         run: python -m playwright install --with-deps
-
-#   smoke:
-#     runs-on: ubuntu-latest
-#     needs: setup
-#     env:
-#       USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
-#       USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
-#       USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
-#       USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
-#       USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
-#       USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
-#       USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
-#       USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
-#       USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
-#       USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
-#       USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
-#       USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
-#       USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
-#       USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
-#       USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
-#       USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
-#       USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
-#       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
-#       BASE_URL: ${{ secrets.BASE_URL }}
-#       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-#     steps:
-#       - uses: actions/checkout@v4
-      
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.11'
-      
-#       - name: Restore Python dependencies
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.cache/pip
-#           key: ${{ needs.setup.outputs.python-cache-key }}
-#           restore-keys: |
-#             python-${{ runner.os }}-
-      
-#       - name: Install dependencies (from cache)
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install -r requirements_with_versions.txt
-      
-#       - name: Restore Playwright browsers
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.cache/ms-playwright
-#           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
-#           restore-keys: |
-#             playwright-browsers-${{ runner.os }}-
-      
-#       - name: Install Allure commandline
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install -y default-jre
-#           wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-#           tar -xzf allure-2.27.0.tgz
-#           sudo mv allure-2.27.0 /opt/allure
-#           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
-#           allure --version
-          
-#       - name: Run smoke tests
-#         run: |
-#           mkdir -p allure-report
-#           mkdir -p allure-results
-#           mkdir -p screenshots
-#           HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
-
-#       - name: Generate Test Results
-#         run: allure generate allure-results -o allure-report --clean --single-file
-
-#       - name: Upload test report & screenshots
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: index.html
-#           path: allure-report/
-
-#       - name: Comment PR with test summary
-#         if: github.event.pull_request.head.repo.full_name == github.repository
-#         uses: actions/github-script@v7
-#         with:
-#           script: |
-#             const fs = require('fs');
-#             const status = process.env.JOB_STATUS || 'unknown';
-#             const summary = status === 'success'
-#               ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-#               : '❌ Some tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-#             github.rest.issues.createComment({
-#               issue_number: context.issue.number,
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               body: summary
-#             })
-#         env:
-#           JOB_STATUS: ${{ job.status }}
-
-#   full:
-#     runs-on: ubuntu-latest
-#     needs: [setup, smoke]
-#     timeout-minutes: 60
-#     env:
-#       USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
-#       USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
-#       USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
-#       USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
-#       USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
-#       USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
-#       USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
-#       USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
-#       USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
-#       USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
-#       USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
-#       USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
-#       USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
-#       USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
-#       USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
-#       USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
-#       USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
-#       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
-#       BASE_URL: ${{ secrets.BASE_URL }}
-#       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-#     steps:
-#       - uses: actions/checkout@v4
-      
-#       - name: Set up Python
-#         uses: actions/setup-python@v4
-#         with:
-#           python-version: '3.11'
-      
-#       - name: Restore Python dependencies
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.cache/pip
-#           key: ${{ needs.setup.outputs.python-cache-key }}
-#           restore-keys: |
-#             python-${{ runner.os }}-
-      
-#       - name: Install dependencies (from cache)
-#         run: |
-#           python -m pip install --upgrade pip
-#           pip install -r requirements_with_versions.txt
-      
-#       - name: Restore Playwright browsers
-#         uses: actions/cache@v3
-#         with:
-#           path: ~/.cache/ms-playwright
-#           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
-#           restore-keys: |
-#             playwright-browsers-${{ runner.os }}-
-      
-#       - name: Install Allure commandline
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install -y default-jre
-#           wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-#           tar -xzf allure-2.27.0.tgz
-#           sudo mv allure-2.27.0 /opt/allure
-#           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
-#           allure --version
-      
-#       - name: Run full test suite
-#         run: |
-#           mkdir -p allure-report
-#           mkdir -p allure-results
-#           mkdir -p screenshots
-#           HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m login -n auto
-      
-#       - name: Generate Test Results
-#         run: allure generate allure-results -o allure-report --clean --single-file
-
-#       - name: Upload test report & screenshots
-#         if: always()
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: index.html
-#           path: allure-report/
-
-#       - name: Comment PR with test summary
-#         if: github.event.pull_request.head.repo.full_name == github.repository
-#         uses: actions/github-script@v7
-#         with:
-#           script: |
-#             const fs = require('fs');
-#             const status = process.env.JOB_STATUS || 'unknown';
-#             const summary = status === 'success'
-#               ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-#               : '❌ Some tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-#             github.rest.issues.createComment({
-#               issue_number: context.issue.number,
-#               owner: context.repo.owner,
-#               repo: context.repo.repo,
-#               body: summary
-#             })
-#         env:
-#           JOB_STATUS: ${{ job.status }}
-
-name: Hudl Tests
+name: Playwright Tests
 
 on:
   push:
@@ -276,73 +18,98 @@ jobs:
     outputs:
       python-cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
-      # ... your setup steps as before ...
-
-  smoke:
-    runs-on: ubuntu-latest
-    needs: setup
-    # ... your env and steps as before ...
-    steps:
-      # ... your steps as before ...
-      - name: Run smoke tests
-        run: |
-          mkdir -p allure-results
-          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
-
-      - name: Upload Allure results (smoke)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results-smoke
-          path: allure-results/
-
-  full:
-    runs-on: ubuntu-latest
-    needs: [setup, smoke]
-    # ... your env and steps as before ...
-    steps:
-      # ... your steps as before ...
-      - name: Run full test suite
-        run: |
-          mkdir -p allure-results
-          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m login -n auto
-
-      - name: Upload Allure results (full)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-results-full
-          path: allure-results/
-
-  report:
-    runs-on: ubuntu-latest
-    needs: [smoke, full]
-    steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      - name: Download Allure results (smoke)
-        uses: actions/download-artifact@v4
+      
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=python-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}" >> $GITHUB_OUTPUT
+      
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        id: cache-deps
         with:
-          name: allure-results-smoke
-          path: allure-results-smoke
-
-      - name: Download Allure results (full)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-results-full
-          path: allure-results-full
-
-      - name: Merge Allure results
+          path: ~/.cache/pip
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install Python dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
-          mkdir -p merged-allure-results
-          cp -r allure-results-smoke/* merged-allure-results/ || true
-          cp -r allure-results-full/* merged-allure-results/ || true
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        id: cache-browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
+      - name: Install Playwright browsers
+        if: steps.cache-browsers.outputs.cache-hit != 'true'
+        run: python -m playwright install --with-deps
 
+  smoke:
+    runs-on: ubuntu-latest
+    needs: setup
+    env:
+      USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
+      USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
+      USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
+      USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
+      USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
+      USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
+      USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
+      USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
+      USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
+      USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
+      USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
+      USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
+      USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
+      USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
+      USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
+      USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
+      USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
+      USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Restore Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install dependencies (from cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Restore Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
       - name: Install Allure commandline
         run: |
           sudo apt-get update
@@ -352,22 +119,134 @@ jobs:
           sudo mv allure-2.27.0 /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
           allure --version
+          
+      - name: Run smoke tests
+        run: |
+          mkdir -p allure-report
+          mkdir -p allure-results
+          mkdir -p screenshots
+          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 
-      - name: Generate Allure report
-        run: allure generate merged-allure-results -o allure-report --clean --single-file
+      - name: Generate Test Results
+        run: |
+          allure generate allure-results -o allure-report --clean --single-file
+          mv allure-report/index.html allure-report/index_smoke.html
 
-      - name: Upload Allure report
+      - name: Upload test report & screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-report
+          name: index_smoke.html
           path: allure-report/
 
       - name: Comment PR with test summary
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        if: github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const status = process.env.JOB_STATUS || 'unknown';
+            const summary = status === 'success'
+              ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+              : '❌ Some tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            })
+        env:
+          JOB_STATUS: ${{ job.status }}
+
+  full:
+    runs-on: ubuntu-latest
+    needs: [setup, smoke]
+    timeout-minutes: 60
+    env:
+      USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
+      USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
+      USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
+      USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
+      USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
+      USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
+      USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
+      USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
+      USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
+      USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
+      USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
+      USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
+      USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
+      USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
+      USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
+      USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
+      USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
+      USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Restore Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install dependencies (from cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Restore Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
+      - name: Install Allure commandline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          allure --version
+      
+      - name: Run full test suite
+        run: |
+          mkdir -p allure-report
+          mkdir -p allure-results
+          mkdir -p screenshots
+          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m login -n auto
+      
+      - name: Generate Test Results
+        run: |
+          allure generate allure-results -o allure-report --clean --single-file
+          mv allure-report/index.html allure-report/index_full.html
+
+      - name: Upload test report & screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: index_full.html
+          path: allure-report/
+
+      - name: Comment PR with test summary
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
             const status = process.env.JOB_STATUS || 'unknown';
             const summary = status === 'success'
               ? '✅ All tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
