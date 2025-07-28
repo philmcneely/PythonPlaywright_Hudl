@@ -1,0 +1,195 @@
+name: Playwright Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      python-cache-key: ${{ steps.cache-key.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Generate cache key
+        id: cache-key
+        run: echo "key=python-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}" >> $GITHUB_OUTPUT
+      
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        id: cache-deps
+        with:
+          path: ~/.cache/pip
+          key: ${{ steps.cache-key.outputs.key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install Python dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Cache Playwright browsers
+        uses: actions/cache@v3
+        id: cache-browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
+      - name: Install Playwright browsers
+        if: steps.cache-browsers.outputs.cache-hit != 'true'
+        run: python -m playwright install --with-deps
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: setup
+    env:
+      USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
+      USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
+      USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
+      USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
+      USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
+      USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
+      USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
+      USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
+      USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
+      USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
+      USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
+      USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
+      USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
+      USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
+      USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
+      USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
+      USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
+      USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Restore Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install dependencies (from cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Restore Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
+      - name: Run smoke tests
+        run: pytest tests/smoke/ -v --tb=short
+      
+      - name: Upload smoke test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results
+          path: test-results/
+          retention-days: 7
+
+  full:
+    runs-on: ubuntu-latest
+    needs: [setup, smoke]
+    timeout-minutes: 60
+    env:
+      USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
+      USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
+      USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
+      USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
+      USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
+      USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
+      USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
+      USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
+      USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
+      USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
+      USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
+      USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
+      USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
+      USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
+      USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
+      USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
+      USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
+      USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Restore Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ needs.setup.outputs.python-cache-key }}
+          restore-keys: |
+            python-${{ runner.os }}-
+      
+      - name: Install dependencies (from cache)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+      
+      - name: Restore Playwright browsers
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
+          restore-keys: |
+            playwright-browsers-${{ runner.os }}-
+      
+      - name: Install Allure commandline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          allure --version
+      
+      - name: Run full test suite
+        run: pytest --alluredir=allure-results -v
+      
+      - name: Generate Allure report
+        if: always()
+        run: allure generate allure-results --clean -o allure-report
+      
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report
+          path: allure-report/
+          retention-days: 30
