@@ -95,7 +95,6 @@ async def test_login_direct_valid_credentials(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["pm"]["password"])
     await app.login_page.click_continue()
-    
     # Retrieve and validate user profile information
     initials, name, email = await app.dashboard_page.get_user_profile_info()
     assert initials == f"{PERSONAS['pm']['first_name'][0]}{PERSONAS['pm']['last_name'][0]}"

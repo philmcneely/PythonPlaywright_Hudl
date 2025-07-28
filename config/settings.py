@@ -11,7 +11,6 @@ load_dotenv()
 
 class Settings:
     """Application settings loaded from environment variables."""
-
     # Browser Configuration
     BROWSER: str = os.getenv("BROWSER", "chromium")
     HEADLESS: bool = os.getenv("HEADLESS", "false").lower() == "true"
@@ -26,7 +25,7 @@ class Settings:
     
     # Allure Configuration
     ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
-    
+
     @classmethod
     def get_browser_options(cls) -> dict:
         """Get browser launch options."""
