@@ -90,7 +90,7 @@ fi
 
 # Install dependencies
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements_with_versions.txt
 python -m playwright install --with-deps
 
 # Prepare output directories
@@ -101,7 +101,7 @@ echo "Pausing for 5 seconds..."
 sleep 5
 
 # Run tests
-SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4 
+ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4 
 
 # Generate Allure report
 echo "📊 Generating Allure report..."

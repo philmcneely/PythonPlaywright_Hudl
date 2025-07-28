@@ -7,11 +7,13 @@ from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+env = os.getenv("ENV", "dev")  # default to 'dev' if ENV is not set
+dotenv_file = f".env.{env}"
+load_dotenv(".env")  # always load base first
+load_dotenv(dotenv_file, override=True)
 
 class Settings:
     """Application settings loaded from environment variables."""
-
     # Browser Configuration
     BROWSER: str = os.getenv("BROWSER", "chromium")
     HEADLESS: bool = os.getenv("HEADLESS", "false").lower() == "true"
@@ -26,7 +28,7 @@ class Settings:
     
     # Allure Configuration
     ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
-    
+
     @classmethod
     def get_browser_options(cls) -> dict:
         """Get browser launch options."""

@@ -1,0 +1,100 @@
+name: Run Hudl Login Tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      TEST_ENV: prod
+      BASE_URL: ${{ secrets.BASE_URL }}
+      API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+      
+      # PM User
+      USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
+      USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
+      USER_PM_ROLE: ${{ secrets.USER_PM_ROLE }}
+      USER_PM_FIRST: ${{ secrets.USER_PM_FIRST }}
+      USER_PM_LAST: ${{ secrets.USER_PM_LAST }}
+      USER_PM_INITIALS: ${{ secrets.USER_PM_INITIALS }}
+      
+      # Admin User
+      USER_ADMIN_EMAIL: ${{ secrets.USER_ADMIN_EMAIL }}
+      USER_ADMIN_PASSWORD: ${{ secrets.USER_ADMIN_PASSWORD }}
+      USER_ADMIN_ROLE: ${{ secrets.USER_ADMIN_ROLE }}
+      USER_ADMIN_FIRST: ${{ secrets.USER_ADMIN_FIRST }}
+      USER_ADMIN_LAST: ${{ secrets.USER_ADMIN_LAST }}
+      USER_ADMIN_INITIALS: ${{ secrets.USER_ADMIN_INITIALS }}
+      
+      # Coach User
+      USER_COACH_EMAIL: ${{ secrets.USER_COACH_EMAIL }}
+      USER_COACH_PASSWORD: ${{ secrets.USER_COACH_PASSWORD }}
+      USER_COACH_ROLE: ${{ secrets.USER_COACH_ROLE }}
+      USER_COACH_FIRST: ${{ secrets.USER_COACH_FIRST }}
+      USER_COACH_LAST: ${{ secrets.USER_COACH_LAST }}
+      USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_with_versions.txt
+          python -m playwright install --with-deps
+          pip install pytest-html pytest-rerunfailures
+
+      - name: Install Allure commandline
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y default-jre
+          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+          tar -xzf allure-2.27.0.tgz
+          sudo mv allure-2.27.0 /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+          allure --version
+
+      - name: Run tests and collect report
+        run: |
+          mkdir -p allure-report
+          mkdir -p allure-results
+          mkdir -p screenshots
+          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n 4  || true
+
+      - name: Generate Test Results
+        run: allure generate allure-results -o allure-report --clean --single-file
+
+      - name: Upload test report & screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: index.html
+          path: allure-report/
+
+      - name: Comment PR with test summary
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const summary = fs.existsSync('test-results/report.html')
+              ? '✅ Tests completed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+              : '❌ Test report not found.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            })

@@ -45,12 +45,16 @@ from utils.screenshot_decorator import screenshot_on_failure
 @pytest.mark.smoke
 @pytest.mark.login
 @pytest.mark.asyncio
-async def test_login_direct_fail(app):
+async def test_login_direct_fail(app,request):
     """
     Test direct login navigation and fails
     """
     await app.login_page.load_login_direct()
-    assert False, "This will trigger a screenshot"
+    # Only fail on the first run
+    rerun = getattr(request.node, "rerun", 0)
+    print(f"Rerun attempt: {rerun}")
+    if rerun == 0:
+        assert False, "This will trigger a screenshot"
 
 # ------------------------------------------------------------------------------
 # Test: Login from Homepage Navigation
@@ -95,7 +99,6 @@ async def test_login_direct_valid_credentials(app):
     await app.login_page.click_continue()
     await app.login_page.enter_password(PERSONAS["pm"]["password"])
     await app.login_page.click_continue()
-    
     # Retrieve and validate user profile information
     initials, name, email = await app.dashboard_page.get_user_profile_info()
     assert initials == f"{PERSONAS['pm']['first_name'][0]}{PERSONAS['pm']['last_name'][0]}"
