@@ -96,7 +96,7 @@ async def test_login_direct_valid_credentials(app):
 @pytest.mark.smoke
 @pytest.mark.login
 @pytest.mark.asyncio
-async def test_login_direct_valid_credentials_then_logut(app):
+async def test_login_direct_valid_credentials_then_logout(app):
     """
     Test direct login navigation with valid credentials.
     Verifies successful login and validates user profile information on dashboard.
