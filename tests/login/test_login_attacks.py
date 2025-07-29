@@ -161,6 +161,38 @@ async def test_login_command_injection_password_field(app):
     assert await app.login_page.has_email_invalid_error_icon()
 
 # ------------------------------------------------------------------------------
+# Test: Path Traversal in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_comprehensive_email_path_traversal(app):
+    """
+    Attempt to login using various Traversal payloads in the email field.
+    Verifies that the login form is not vulnerable and displays the correct error.
+    """
+    injection_payloads = [
+        "../../../etc/passwd",
+        "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+        "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+        "%252e%252e%252f",
+        "..%c0%af..%c0%af..%c0%afetc%c0%afpasswd",
+        "../../../etc/passwd%00"
+    ]
+    for email_payload in injection_payloads:
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(email_payload)
+        await app.login_page.click_continue()
+        # Assert that the invalid email error message is visible
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        expected_message = app.login_page.error_message_email_invalid_text
+        actual_message = await app.login_page.get_error_message_email_invalid_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_invalid_error_icon()
+
+
+# ------------------------------------------------------------------------------
 # Test: Brute Force / Rapid Login Attempts
 # ------------------------------------------------------------------------------
 

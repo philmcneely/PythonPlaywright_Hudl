@@ -39,6 +39,7 @@ from utils.screenshot_decorator import screenshot_on_failure
 
 @screenshot_on_failure
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_invalid_password(app):
     """
@@ -156,27 +157,40 @@ async def test_login_empty_password(app):
     assert await app.login_page.has_password_required_error_icon()
 
 # ------------------------------------------------------------------------------
-# Test: Malformed Email - Just Text
+# Test: Malformed Email Entry
 # ------------------------------------------------------------------------------
 
 @screenshot_on_failure
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_malformed_email_just_text(app):
     """
-    Test login with malformed email (just text without @ or domain).
+    Test login with malformed email (just text without @ or domain), numbers, 
+    single number, a single special character, spaces and unicode.
     Verifies that the email validation error is displayed and password field is not shown.
+    I will leave seperate tests for too long a string.
     """
-    await app.login_page.load_login_direct()
-    await app.login_page.enter_email("aerwerwrtwqtrt")
-    await app.login_page.click_continue()
-    # Assert password field is not visible and email error is shown
-    assert not await app.login_page.password_textbox.is_visible()
-    assert await app.login_page.error_message_email_invalid.is_visible()
-    expected_message = app.login_page.error_message_email_invalid_text
-    actual_message = await app.login_page.get_error_message_email_invalid_text()
-    assert expected_message == actual_message
-    assert await app.login_page.has_email_invalid_error_icon()
+    email_payloads = [
+        "asdaqdasf",
+        "12345",
+        "1",
+        "@",
+        "dadfdf_)_)&*^*(^)*&%%&^I$%$^#^$$@gmail.com",
+        "        ",
+        "用户名"
+    ]
+    for email_payload in email_payloads:
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(email_payload)
+        await app.login_page.click_continue()
+        # Assert that the invalid email error message is visible
+        assert not await app.login_page.password_textbox.is_visible()
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        expected_message = app.login_page.error_message_email_invalid_text
+        actual_message = await app.login_page.get_error_message_email_invalid_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_invalid_error_icon()
 
 # ------------------------------------------------------------------------------
 # Test: Edit Invalid Email to Valid Email
@@ -202,28 +216,6 @@ async def test_login_edit_invalid_account(app):
     await app.login_page.enter_password(PERSONAS["user"]["password"])
     await app.login_page.click_continue()
     await app.dashboard_page.verify_user_profile_info()
-
-# ------------------------------------------------------------------------------
-# Test: Malformed Email with Special Characters
-# ------------------------------------------------------------------------------
-
-@screenshot_on_failure
-@pytest.mark.login
-@pytest.mark.asyncio
-async def test_login_malformed_email_special_characters(app):
-    """
-    Test login with malformed email containing unusual special characters.
-    Verifies that the email validation error is displayed.
-    """
-    await app.login_page.load_login_direct()
-    await app.login_page.enter_email("dadfdf_)_)&*^*(^)*&%%&^I$%$^#^$$@gmail.com")
-    await app.login_page.click_continue()
-    # Assert email validation error is shown
-    assert await app.login_page.error_message_email_invalid.is_visible()
-    expected_message = app.login_page.error_message_email_invalid_text
-    actual_message = await app.login_page.get_error_message_email_invalid_text()
-    assert expected_message == actual_message
-    assert await app.login_page.has_email_invalid_error_icon()
 
 # ------------------------------------------------------------------------------
 # Test: Email with Too Many Characters (300+)
