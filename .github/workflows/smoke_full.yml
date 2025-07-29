@@ -121,7 +121,7 @@ jobs:
           allure --version
 
       - name: Install WebKit dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwoff1 libwoff2
+        run: sudo apt-get update && sudo apt-get install -y libwoff1 libwoff2-1 #Ubuntu changed libwoff2 to libwoff2-1
           
       - name: Run chromium smoke tests
         run: |
@@ -241,7 +241,7 @@ jobs:
           allure --version
 
       - name: Install WebKit dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwoff1 libwoff2
+        run: sudo apt-get update && sudo apt-get install -y libwoff1 libwoff2-1 #Ubuntu changed libwoff2 to libwoff2-1
       
       - name: Run full test suite
         run: |
