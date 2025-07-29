@@ -203,6 +203,57 @@ Everything is already configured to run a smoke test, then if that passes it wil
 
 ---
 
+
+## 11. AI Self healing
+
+Install Ollama Python library
+
+```sh
+pip install ollama
+```
+
+# Ollama Model Setup for AI Healing
+
+**Check Available Models**
+
+```sh
+ollama list
+```
+
+**Pull a Suitable Model**
+
+### For vision + text analysis (recommended for screenshot analysis):
+
+```sh
+ollama pull llava:7b
+# or
+ollama pull llava:13b
+```
+
+### For text-only analysis (faster, smaller):
+
+```sh
+ollama pull llama3.1:8b
+# or
+ollama pull llama3.2:3b
+```
+
+**Update Your Environment Variable**
+
+Set the model you actually have:
+
+```sh
+export OLLAMA_MODEL=llava:7b
+# or whatever model you pulled
+```
+
+**Test Ollama is Working**
+
+```sh
+ollama run llava:7b "Hello, can you analyze test failures?"
+```
+---
+
 ## Troubleshooting
 
 - **Missing .env file:**  

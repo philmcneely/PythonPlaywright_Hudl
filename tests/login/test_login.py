@@ -42,7 +42,7 @@ from utils.screenshot_decorator import screenshot_on_failure
 @screenshot_on_failure
 @pytest.mark.fail
 @pytest.mark.asyncio
-async def test_login_direct_fail(app,request):
+async def test_login_direct_fail(app, request):
     """
     Test direct login navigation and fails
     """
