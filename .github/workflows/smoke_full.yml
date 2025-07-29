@@ -266,8 +266,8 @@ jobs:
             const fs = require('fs');
             const status = process.env.JOB_STATUS || 'unknown';
             const summary = status === 'success'
-              ? '✅ All login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+              ? '✅ All chromium login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+              : '❌ Some chromium login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -307,8 +307,8 @@ jobs:
             const fs = require('fs');
             const status = process.env.JOB_STATUS || 'unknown';
             const summary = status === 'success'
-              ? '✅ All login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+              ? '✅ All firefox login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+              : '❌ Some firefox login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
