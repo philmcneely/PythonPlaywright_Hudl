@@ -77,6 +77,7 @@ async def test_login_from_home_valid_credentials(app):
 @screenshot_on_failure
 @pytest.mark.smoke
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_direct_valid_credentials(app):
     """
@@ -94,6 +95,7 @@ async def test_login_direct_valid_credentials(app):
 @screenshot_on_failure
 @pytest.mark.smoke
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_direct_valid_credentials_then_logout(app):
     """

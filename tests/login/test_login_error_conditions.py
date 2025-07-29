@@ -39,6 +39,7 @@ from utils.screenshot_decorator import screenshot_on_failure
 
 @screenshot_on_failure
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_invalid_password(app):
     """
@@ -161,6 +162,7 @@ async def test_login_empty_password(app):
 
 @screenshot_on_failure
 @pytest.mark.login
+@pytest.mark.compatibility
 @pytest.mark.asyncio
 async def test_login_malformed_email_just_text(app):
     """
