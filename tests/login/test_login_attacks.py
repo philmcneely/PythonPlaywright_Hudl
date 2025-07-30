@@ -30,7 +30,7 @@ Date: [2025-07-27]
 
 import pytest
 from pages.login_page import LoginPage
-from utils.screenshot_decorator import screenshot_on_failure
+from utils.decorators.screenshot_decorator import screenshot_on_failure
 
 # ------------------------------------------------------------------------------
 # Test: SQL Injection in Email Field

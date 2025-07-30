@@ -33,7 +33,7 @@ from pages.login_page import LoginPage
 from pages.privacy_page import PrivacyPolicyPage
 from pages.terms_page import TermsPage
 from data.personas import PERSONAS
-from utils.screenshot_decorator import screenshot_on_failure
+from utils.decorators.screenshot_decorator import screenshot_on_failure
 
 # ------------------------------------------------------------------------------
 # Test: Loads page and fails to generate screenshot

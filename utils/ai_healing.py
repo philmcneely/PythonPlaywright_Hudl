@@ -1,14 +1,62 @@
+"""
+===============================================================================
+AI Healing Service for Playwright Tests Using Ollama Model
+===============================================================================
+
+This module provides the OllamaAIHealingService class and related functions
+for capturing test failure context, querying the Ollama AI model for healing
+analysis, and generating detailed healing reports.
+
+Features:
+    - Async context capture including screenshots and DOM snapshot
+    - Robust prompt building for AI analysis
+    - Querying Ollama with retries and error handling
+    - Parsing Ollama JSON responses with multiple fallback strategies
+    - Saving detailed markdown reports and healed test code
+    - Thread-safe context storage for parallel test runs
+
+Environment Variables:
+    OLLAMA_MODEL: Ollama model to use (default: llama3.1:8b)
+    AI_HEALING_ENABLED: Enable AI healing (true|false, default: false)
+    AI_HEALING_CONFIDENCE: Confidence threshold for healed tests (default: 0.7)
+    OLLAMA_HOST: Ollama server URL (default: http://localhost:11434)
+    OLLAMA_TEMPERATURE: Temperature setting for Ollama model (default: 0.1)
+
+Author: PMAC
+Date: [2025-07-29]
+===============================================================================
+"""
+
 import functools
 import json
 import inspect
 import os
+import requests
 from pathlib import Path
 from datetime import datetime
+import subprocess
+import time
+import shutil
+import asyncio
+from config.settings import settings
 
 import ollama
 
+# ------------------------------------------------------------------------------
+# Class: OllamaAIHealingService
+# ------------------------------------------------------------------------------
+
 class OllamaAIHealingService:
+    """
+    Service class to manage AI healing using Ollama model.
+    Handles context capture, prompt building, querying, response parsing,
+    and report generation.
+    """
+
     def __init__(self):
+        """
+        Initialize the OllamaAIHealingService with environment variables.
+        """
         self.model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
         self.enabled = os.getenv("AI_HEALING_ENABLED", "false").lower() == "true"
         self.confidence_threshold = float(os.getenv("AI_HEALING_CONFIDENCE", "0.7"))
@@ -17,7 +65,18 @@ class OllamaAIHealingService:
         self.client = ollama.Client(host=self.ollama_host)
 
     async def capture_failure_context(self, page, error, test_name, test_function):
-        """Capture all context needed for AI analysis"""
+        """
+        Capture all context needed for AI analysis including URL, title, screenshot, and DOM.
+
+        Args:
+            page: Playwright page object
+            error: Exception instance from test failure
+            test_name: Name of the test function
+            test_function: The test function object
+
+        Returns:
+            tuple: (context dict, screenshot path or None)
+        """
         context = {
             "test_name": test_name,
             "error_message": str(error),
@@ -52,7 +111,16 @@ class OllamaAIHealingService:
         return context, screenshot_path
 
     def _build_healing_prompt(self, context, original_test_code):
-        """Build a comprehensive prompt for Ollama"""
+        """
+        Build a comprehensive prompt for Ollama AI model based on test failure context.
+
+        Args:
+            context (dict): Captured failure context
+            original_test_code (str): Source code of the original test
+
+        Returns:
+            str: Formatted prompt string
+        """
         prompt = f"""
             You are an expert Quality Assurance Engineer and test automation specialist. 
 
@@ -112,7 +180,16 @@ class OllamaAIHealingService:
         return prompt
 
     def _query_ollama(self, prompt, screenshot_path=None):
-        """Query Ollama with prompt and optional screenshot"""
+        """
+        Query Ollama with prompt and optional screenshot.
+
+        Args:
+            prompt (str): The prompt string to send
+            screenshot_path (str): Optional path to screenshot image
+
+        Returns:
+            str or None: Ollama response text or None on failure
+        """
         try:
             print(f"🧠 Querying Ollama model: {self.model}")
 
@@ -141,7 +218,15 @@ class OllamaAIHealingService:
             return None
 
     def _parse_ollama_response(self, response_text):
-        """Parse Ollama response and extract JSON with robust error handling"""
+        """
+        Parse Ollama response and extract JSON with robust error handling.
+
+        Args:
+            response_text (str): Raw response text from Ollama
+
+        Returns:
+            dict or None: Parsed JSON dict or None if parsing failed
+        """
         if not response_text:
             print("🤖 Empty response from Ollama")
             return None
@@ -224,7 +309,17 @@ class OllamaAIHealingService:
             }
 
     def call_ollama_healing(self, context, original_test_code, screenshot_path=None):
-        """Call Ollama for test healing analysis"""
+        """
+        Call Ollama for test healing analysis.
+
+        Args:
+            context (dict): Captured failure context
+            original_test_code (str): Source code of the original test
+            screenshot_path (str): Optional path to screenshot image
+
+        Returns:
+            dict: Parsed Ollama response or error dict
+        """
         try:
             #print("🤖 [DEBUG] Building healing prompt...")
             prompt = self._build_healing_prompt(context, original_test_code)
@@ -258,7 +353,9 @@ class OllamaAIHealingService:
             return {"error": str(e)}
 
     def stop_model(self):
-        """Stop the Ollama model to free resources"""
+        """
+        Stop the Ollama model to free resources.
+        """
         try:
             res = self.client.generate(
                 model=self.model,
@@ -271,14 +368,32 @@ class OllamaAIHealingService:
             print(f"🤖 Failed to stop model: {e}")
 
     def extract_test_source(self, test_function):
-        """Extract the source code of the test function"""
+        """
+        Extract the source code of the test function.
+
+        Args:
+            test_function (function): The test function object
+
+        Returns:
+            str: Source code string or fallback comment
+        """
         try:
             return inspect.getsource(test_function)
         except:
             return f"# Could not extract source for {test_function.__name__}"
 
     async def generate_healing_report(self, test_name, ai_response, context):
-        """Generate detailed healing report"""
+        """
+        Generate detailed healing report markdown and save healed test code if provided.
+
+        Args:
+            test_name (str): Name of the test
+            ai_response (dict): Parsed Ollama AI response
+            context (dict): Failure context
+
+        Returns:
+            None
+        """
         healing_dir = Path("ai_healing_reports")
         healing_dir.mkdir(exist_ok=True)
 
@@ -349,11 +464,11 @@ class OllamaAIHealingService:
             with open(healed_test_file, 'w') as f:
                 f.write(ai_response['updated_test_code'])
 
-            print(f"💾 Ollama healed test saved: {healed_test_file}")
+            print(f"Ollama healed test saved: {healed_test_file}")
 
         # Console output
         print(f"\n{'='*80}")
-        print(f"🧠 OLLAMA AI HEALING: {test_name}")
+        print(f"OLLAMA AI HEALING: {test_name}")
         print(f"{'='*80}")
         print(f"🤖 Model: {self.model}")
         print(f"📊 Confidence: {ai_response.get('confidence', 0):.1%}")
@@ -368,8 +483,15 @@ class OllamaAIHealingService:
 
         print(f"{'='*80}\n")
 
+# ------------------------------------------------------------------------------
 # Global service instance
+# ------------------------------------------------------------------------------
+
 _ollama_service = OllamaAIHealingService()
+
+# ------------------------------------------------------------------------------
+# Decorator: ai_healing
+# ------------------------------------------------------------------------------
 
 def ai_healing(func):
     """
@@ -462,7 +584,284 @@ def ai_healing(func):
 
     return wrapper
 
-# Utility function to stop model when done
+# ------------------------------------------------------------------------------
+# Function: stop_ollama_model
+# ------------------------------------------------------------------------------
+
 def stop_ollama_model():
-    """Stop the Ollama model to free resources"""
+    """
+    Stop the Ollama model to free resources.
+    """
     _ollama_service.stop_model()
+
+# ------------------------------------------------------------------------------
+# Thread-safe dictionaries and locks
+# ------------------------------------------------------------------------------
+
+_ollama_checked = False
+_ollama_service = OllamaAIHealingService()
+
+# ------------------------------------------------------------------------------
+# Function: ensure_ollama_model_loaded
+# ------------------------------------------------------------------------------
+
+def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
+    """
+    Check if the specified model is available and loaded.
+    If not, attempt to pull and warm it up by waiting for a real response.
+
+    Args:
+        model_name (str): Model name to check/load
+        host (str): Ollama host URL
+        max_wait (int): Max wait time in seconds
+
+    Returns:
+        bool: True if model is loaded and ready, False otherwise
+    """
+    if not model_name:
+        model_name = _ollama_service.model
+    if not host:
+        host = _ollama_service.ollama_host
+    try:
+        print(f"🤖 Checking if model {model_name} is available...")
+        # List available models
+        resp = requests.get(f"{host}/api/tags", timeout=5)
+        if resp.status_code != 200:
+            print(f"❌ Failed to get model list: {resp.status_code}")
+            return False
+        tags = resp.json().get("models", [])
+        model_exists = any(model_name in m.get("name", "") for m in tags)
+        if not model_exists:
+            print(f"🤖 Model {model_name} not found. Attempting to pull...")
+            pull_resp = requests.post(
+                f"{host}/api/pull", 
+                json={"name": model_name}, 
+                timeout=180  # Pulling can take a while
+            )
+            if pull_resp.status_code == 200:
+                print(f"🤖 Model {model_name} pulled successfully.")
+            else:
+                print(f"❌ Failed to pull model {model_name}: {pull_resp.text}")
+                return False
+        # Warm up the model by waiting for a real, non-error response
+        print(f"🤖 Warming up model {model_name} (waiting for a real response)...")
+        start = time.time()
+        while time.time() - start < max_wait:
+            try:
+                gen_resp = requests.post(
+                    f"{host}/api/generate",
+                    json={
+                        "model": model_name,
+                        "prompt": "Hello",
+                        "stream": False,
+                        "options": {"num_predict": 5}
+                    },
+                    timeout=30
+                )
+                if gen_resp.status_code == 200:
+                    response_data = gen_resp.json()
+                    if "response" in response_data and response_data["response"].strip():
+                        print(f"🤖 Model {model_name} is loaded and ready.")
+                        return True
+                    elif "error" in response_data:
+                        print(f"🤖 Model not ready yet: {response_data['error']}")
+                else:
+                    print(f"🤖 Model not ready, status: {gen_resp.status_code}")
+            except Exception as e:
+                print(f"🤖 Waiting for model to load: {e}")
+            time.sleep(3)
+        print(f"❌ Model {model_name} did not become ready in {max_wait} seconds.")
+        return False
+    except requests.exceptions.Timeout:
+        print(f"❌ Timeout while checking/loading model {model_name}")
+        return False
+    except Exception as e:
+        print(f"❌ Error checking/loading model {model_name}: {e}")
+        return False
+
+# ------------------------------------------------------------------------------
+# Function: ensure_ollama_running
+# ------------------------------------------------------------------------------
+
+def ensure_ollama_running():
+    """
+    Check if Ollama service is running and start it if not.
+    Also ensures the specified model is loaded and ready.
+
+    Returns:
+        bool: True if service and model are available, False otherwise
+    """
+    global _ollama_checked
+    if _ollama_checked:
+        return True
+    print(f"🤖 Checking Ollama service at {_ollama_service.ollama_host}...")
+    print(f"🤖 Ollama executable path: {shutil.which('ollama')}")
+    try:
+        # Try to ping the Ollama API
+        response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=3)
+        if response.status_code == 200:
+            print("🤖 Ollama service is already running.")
+        else:
+            print(f"🤖 Ollama service responded with status {response.status_code}")
+    except Exception:
+        print("🤖 Ollama service not running, attempting to start...")
+        try:
+            if not shutil.which("ollama"):
+                print("❌ Ollama command not found. Please install Ollama first.")
+                return False
+            print("🤖 Attempting to start Ollama with: ollama serve")
+            proc = subprocess.Popen(
+                ["ollama", "serve"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            print(f"🤖 Ollama process started with PID: {proc.pid}")
+            print("🤖 Waiting for Ollama service to start...")
+            for i in range(30):
+                try:
+                    response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=2)
+                    if response.status_code == 200:
+                        print("🤖 Ollama service started successfully.")
+                        break
+                except Exception:
+                    time.sleep(1)
+                    if i % 5 == 0:
+                        print(f"🤖 Still waiting for Ollama... ({i+1}/30)")
+            else:
+                print("❌ Failed to start Ollama service within 30 seconds.")
+                return False
+        except Exception as e:
+            print(f"❌ Could not start Ollama service: {e}")
+            return False
+    # Now ensure the model is loaded and warmed up
+    if not ensure_ollama_model_loaded():
+        print(f"❌ Failed to load/warmup model {_ollama_service.model}")
+        return False
+    _ollama_checked = True
+    return True
+
+# ------------------------------------------------------------------------------
+# Function: _find_page_object
+# ------------------------------------------------------------------------------
+
+def _find_page_object(item):
+    """
+    Find the Playwright page object from pytest test item fixtures.
+
+    Args:
+        item: Pytest test item
+
+    Returns:
+        Playwright page object or None
+    """
+    page = None
+    funcargs = getattr(item, 'funcargs', {})
+    if not page:
+        for name, value in funcargs.items():
+            if name == "page" and hasattr(value, 'screenshot'):
+                page = value
+                break
+            elif name == "app" and hasattr(value, "page"):
+                page = value.page
+                break
+            elif name.endswith("_page") and hasattr(value, "screenshot"):
+                page = value
+                break
+            elif hasattr(value, "pages") and value.pages:
+                page = value.pages[0]
+                break
+    return page
+
+# ------------------------------------------------------------------------------
+# Async Function: _capture_page_info
+# ------------------------------------------------------------------------------
+
+async def _capture_page_info(page, screenshot_path):
+    """
+    Capture screenshot and page title asynchronously.
+
+    Args:
+        page: Playwright page object
+        screenshot_path (str): Path to save screenshot
+
+    Returns:
+        str: Page title
+    """
+    await page.screenshot(path=screenshot_path)
+    title = await page.title()
+    return title
+
+# ------------------------------------------------------------------------------
+# Function: _capture_ai_healing_context
+# ------------------------------------------------------------------------------
+
+def _capture_ai_healing_context(item, page, error_message):
+    """
+    Capture test failure context for AI healing and save it in the global service.
+
+    Args:
+        item: Pytest test item
+        page: Playwright page object
+        error_message (str): Error message from test failure
+
+    Returns:
+        None
+    """
+    try:
+        test_name = item.name
+        test_key = item.nodeid
+        if not _ollama_service.enabled:
+            print(f"🧠 AI healing is disabled via AI_HEALING_ENABLED flag. Skipping healing for {item.name}")
+            return
+        print(f"🧠 Test failed, capturing context for AI healing: {test_name}")
+        original_test_code = ""
+        try:
+            test_file = item.fspath
+            with open(test_file, 'r') as f:
+                original_test_code = f.read()
+        except Exception as e:
+            print(f"Warning: Could not read test file: {e}")
+        screenshot_path = None
+        page_title = None
+        if page:
+            try:
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                screenshot_filename = f"{test_key.replace('::', '_').replace('/', '_')}_{timestamp}.png"
+                screenshot_path = f"screenshots/{screenshot_filename}"
+                os.makedirs("screenshots", exist_ok=True)
+                page_title = asyncio.get_event_loop().run_until_complete(
+                    _capture_page_info(page, screenshot_path)
+                )
+                print(f"Screenshot saved and attached to Allure: {screenshot_path}")
+            except Exception as e:
+                print(f"Warning: Could not capture screenshot: {e}")
+        context = {
+            "test_name": test_name,
+            "test_file": str(item.fspath),
+            "error_message": error_message,
+            "timestamp": datetime.now().isoformat(),
+            "browser": os.getenv("BROWSER", settings.BROWSER),
+            "headless": os.getenv("HEADLESS", str(settings.HEADLESS)),
+            "ollama_host": _ollama_service.ollama_host,
+            "ollama_model": _ollama_service.model,
+        }
+        if page and page_title:
+            try:
+                context.update({
+                    "current_url": getattr(page, 'url', None),
+                    "page_title": page_title,
+                    "viewport_size": getattr(page, 'viewport_size', None),
+                })
+            except Exception as e:
+                print(f"Warning: Could not capture additional page context: {e}")
+        if not hasattr(_ollama_service, '_pending_contexts'):
+            _ollama_service._pending_contexts = {}
+        _ollama_service._pending_contexts[test_key] = {
+            "test_name": test_name,
+            "context": context,
+            "original_test_code": original_test_code,
+            "screenshot_path": screenshot_path,
+        }
+        print(f"💾 Context saved for AI healing hook (key: {test_key})")
+    except Exception as e:
+        print(f"🧠 Error capturing AI healing context: {e}")

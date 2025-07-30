@@ -31,7 +31,7 @@ Date: [2025-07-27]
 
 import pytest
 from data.personas import PERSONAS
-from utils.screenshot_decorator import screenshot_on_failure
+from utils.decorators.screenshot_decorator import screenshot_on_failure
 
 # ------------------------------------------------------------------------------
 # Test: Valid Account with Invalid Password

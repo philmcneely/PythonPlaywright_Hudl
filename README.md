@@ -288,6 +288,8 @@ Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_t
 🧠 AI analysis complete, generating healing report...
 💾 Ollama healed test saved: ai_healing_reports/test_login_direct_valid_credentials_20250729_213826_ollama_healed.py
 ```
+
+You can see soem example reports and attempts at fixing the files in the example_ai_reports folder
 ---
 
 ## Troubleshooting
