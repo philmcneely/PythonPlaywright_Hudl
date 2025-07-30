@@ -33,7 +33,7 @@ from pages.login_page import LoginPage
 from pages.privacy_page import PrivacyPolicyPage
 from pages.terms_page import TermsPage
 from data.personas import PERSONAS
-from utils.screenshot_decorator import screenshot_on_failure
+from utils.decorators.screenshot_decorator import screenshot_on_failure
 
 # ------------------------------------------------------------------------------
 # Test: Loads page and fails to generate screenshot
@@ -42,7 +42,7 @@ from utils.screenshot_decorator import screenshot_on_failure
 @screenshot_on_failure
 @pytest.mark.fail
 @pytest.mark.asyncio
-async def test_login_direct_fail(app,request):
+async def test_login_direct_fail(app, request):
     """
     Test direct login navigation and fails
     """
@@ -86,6 +86,27 @@ async def test_login_direct_valid_credentials(app):
     """
     await app.login_page.load_login_direct()
     await app.login_page.fill_email_and_password_submit(PERSONAS["user"]["email"],PERSONAS["user"]["password"])
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
+# Test: Direct Login with Valid Credentials - fails on purpose
+# ------------------------------------------------------------------------------
+
+@pytest.mark.trigger_ai_healing
+@screenshot_on_failure
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    """
+    Test direct login navigation with valid credentials.
+    Verifies successful login and validates user profile information on dashboard.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_passwordx(PERSONAS["user"]["password"])
+    await app.login_page.click_continue()
+    await app.dashboard_page.verify_user_profile_info()
     await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------

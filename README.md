@@ -203,6 +203,95 @@ Everything is already configured to run a smoke test, then if that passes it wil
 
 ---
 
+
+## 11. AI Self healing
+
+Install Ollama Python library
+
+```sh
+pip install ollama
+```
+
+# Ollama Model Setup for AI Healing
+
+**Check Available Models**
+
+```sh
+ollama list
+```
+
+**Pull a Suitable Model**
+
+### For vision + text analysis (recommended for screenshot analysis):
+
+```sh
+ollama pull llava:7b
+# or
+ollama pull llava:13b
+```
+
+### For text-only analysis (faster, smaller):
+
+```sh
+ollama pull llama3.1:8b
+# or
+ollama pull llama3.2:3b
+```
+
+**Update Your Environment Variable**
+
+Set the model you actually have:
+
+```sh
+export OLLAMA_MODEL=llava:7b
+# or whatever model you pulled
+```
+
+**Test Ollama is Working**
+
+```sh
+ollama run llava:7b "Hello, can you analyze test failures?"
+```
+
+This is not configured on Github Actions due to needing a larger machine runner.
+Reports will be found in /ai_healing_reports
+
+To see this in action, you can run a test specifically created to show it in action by running
+```sh
+AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
+```
+
+This is an example of commandline output
+
+```sh
+🧠 Test failed, capturing context for AI healing: test_login_direct_valid_credentials
+Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_test_login_direct_valid_credentials_2025-07-29_21-37-36.png
+💾 Context saved for AI healing hook (key: tests/login/test_login.py::test_login_direct_valid_credentials)
+
+🧠 Final failure detected for test_login_direct_valid_credentials, triggering AI healing
+🤖 Using Ollama at http://localhost:11434 with model gemma2:2b
+🤖 Checking Ollama service at http://localhost:11434...
+🤖 Ollama executable path: /usr/local/bin/ollama
+🤖 Ollama service is already running.
+🤖 Checking if model gemma2:2b is available...
+🤖 Warming up model gemma2:2b (waiting for a real response)...
+🤖 Model gemma2:2b is loaded and ready.
+🧠 Calling Ollama for AI healing analysis...
+🧠 Querying Ollama model: gemma2:2b
+📸 Including screenshot: screenshots/tests_login_test_login.py_test_login_direct_valid_credentials_2025-07-29_21-37-36.png
+🤖 Raw Ollama response (first 200 chars): ```json
+{
+    "analysis": "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is trying to access an element named 'enter_passwordx' which doesn't exist wi...
+🤖 Found JSON in code block
+✅ Successfully parsed JSON response
+🤖 Full Ollama response: {'analysis': "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is trying to access an element named 'enter_passwordx' which doesn't exist within the LoginPage class. This likely means there's a typo in the test code, or the element name might have been changed.", 'root_cause': 'Typographical error in the test code (e.g., incorrect element name)', 'confidence': 0.95, 'suggested_fix': 'Verify the element names used in the test code against the actual HTML structure of the LoginPage class. Double-check for typos or misspellings.', 'updated_test_code': "```python\n@pytest.mark.login\nasync def test_login_direct_valid_credentials(app):\n    # ... (rest of the code)\n    await app.login_page.enter_passwordx(PERSONAS['user']['password']) \n    # ... (rest of the code)\n```", 'recommendations': "It's recommended to use a robust test framework like pytest for better test organization and error handling.  Consider using assertions to ensure that elements are found correctly, and implement strategies to handle flaky tests effectively.", 'raw_ollama_response': '```json\n{\n    "analysis": "The error message \'LoginPage\' object has no attribute \'enter_passwordx\' indicates that the code is trying to access an element named \'enter_passwordx\' which doesn\'t exist within the LoginPage class. This likely means there\'s a typo in the test code, or the element name might have been changed.",\n    "root_cause": "Typographical error in the test code (e.g., incorrect element name)",\n    "confidence": 0.95,\n    "suggested_fix": "Verify the element names used in the test code against the actual HTML structure of the LoginPage class. Double-check for typos or misspellings.",\n    "updated_test_code": "```python\\n@pytest.mark.login\\nasync def test_login_direct_valid_credentials(app):\\n    # ... (rest of the code)\\n    await app.login_page.enter_passwordx(PERSONAS[\'user\'][\'password\']) \\n    # ... (rest of the code)\\n```",\n    "recommendations": "It\'s recommended to use a robust test framework like pytest for better test organization and error handling.  Consider using assertions to ensure that elements are found correctly, and implement strategies to handle flaky tests effectively." \n}\n```'}
+🧠 AI analysis complete, generating healing report...
+💾 Ollama healed test saved: ai_healing_reports/test_login_direct_valid_credentials_20250729_213826_ollama_healed.py
+```
+
+You can see soem example reports and attempts at fixing the files in the example_ai_reports folder
+---
+
 ## Troubleshooting
 
 - **Missing .env file:**  
