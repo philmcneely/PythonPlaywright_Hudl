@@ -89,6 +89,27 @@ async def test_login_direct_valid_credentials(app):
     await app.dashboard_page.verify_user_profile_info()
 
 # ------------------------------------------------------------------------------
+# Test: Direct Login with Valid Credentials - fails on purpose
+# ------------------------------------------------------------------------------
+
+@pytest.mark.trigger_ai_healing
+@screenshot_on_failure
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    """
+    Test direct login navigation with valid credentials.
+    Verifies successful login and validates user profile information on dashboard.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_passwordx(PERSONAS["user"]["password"])
+    await app.login_page.click_continue()
+    await app.dashboard_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
 # Test: Direct Login with Valid Credentials then Logout (could be combined with above)
 # ------------------------------------------------------------------------------
 

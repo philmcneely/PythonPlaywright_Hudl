@@ -1,15 +1,16 @@
 import functools
 import json
 import inspect
-import ollama
 import os
 from pathlib import Path
 from datetime import datetime
 
+import ollama
+
 class OllamaAIHealingService:
     def __init__(self):
         self.model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
-        self.enabled = os.getenv("AI_HEALING_ENABLED", "true").lower() == "true"
+        self.enabled = os.getenv("AI_HEALING_ENABLED", "false").lower() == "true"
         self.confidence_threshold = float(os.getenv("AI_HEALING_CONFIDENCE", "0.7"))
         self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))

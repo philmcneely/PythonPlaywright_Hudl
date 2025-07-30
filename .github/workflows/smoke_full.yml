@@ -43,9 +43,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
-          pip install ollama
 
-      
+      # - name: Install Ollama CLI
+      #   run: curl -fsSL https://ollama.com/install.sh | sh
+
+      # - name: Start Ollama service
+      #   run: |
+      #     nohup ollama serve > ollama.log 2>&1 &
+      #     sleep 10  # wait for service to start
+
+      # - name: Pull Ollama model from secret
+      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
+
+      # - name: List Ollama models
+      #   run: ollama list
+
       - name: Cache Playwright browsers
         uses: actions/cache@v3
         id: cache-browsers
@@ -83,6 +95,12 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
+      AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
+      OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
+      OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}
+
     steps:
       - uses: actions/checkout@v4
       
@@ -103,8 +121,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
-          pip install ollama
-          ollama pull gemma2:2b
+
+      # - name: Install Ollama CLI
+      #   run: curl -fsSL https://ollama.com/install.sh | sh
+
+      # - name: Start Ollama service
+      #   run: |
+      #     nohup ollama serve > ollama.log 2>&1 &
+      #     sleep 10  # wait for service to start
+
+      # - name: Pull Ollama model from secret
+      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
+
+      # - name: List Ollama models
+      #   run: ollama list
       
       - name: Restore Playwright browsers
         uses: actions/cache@v3
@@ -129,14 +159,14 @@ jobs:
           mkdir -p allure-report
           mkdir -p allure-results
           mkdir -p screenshots
-          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
           
       - name: Run firefox smoke tests
         run: |
           mkdir -p allure-report
           mkdir -p allure-results
           mkdir -p screenshots
-          BROWSER=firefox HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+          AI_HEALING_ENABLED=false BROWSER=firefox HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 
       # Some kind of GHA error runnign webkit, defer for now - common fixes didnt work
       # - name: Run webkit smoke tests
@@ -203,6 +233,12 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
+      AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
+      OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
+      OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}
+
     steps:
       - uses: actions/checkout@v4
       
@@ -223,8 +259,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
-          pip install ollama
-          ollama pull gemma2:2b
+
+      # - name: Install Ollama CLI
+      #   run: curl -fsSL https://ollama.com/install.sh | sh
+
+      # - name: Start Ollama service
+      #   run: |
+      #     nohup ollama serve > ollama.log 2>&1 &
+      #     sleep 10  # wait for service to start
+
+      # - name: Pull Ollama model from secret
+      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
+
+      # - name: List Ollama models
+      #   run: ollama list
       
       - name: Restore Playwright browsers
         uses: actions/cache@v3
@@ -249,7 +297,7 @@ jobs:
           mkdir -p allure-report
           mkdir -p allure-results
           mkdir -p screenshots
-          HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m  "login and not (smoke or danger)" -n auto
+          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m  "login and not (smoke or danger)" -n auto
 
       - name: Generate Test Results
         if: always()
@@ -290,7 +338,7 @@ jobs:
           mkdir -p allure-report
           mkdir -p allure-results
           mkdir -p screenshots
-          BROWSER=firefox HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m "login and not (smoke or danger)" -n auto
+          AI_HEALING_ENABLED=false BROWSER=firefox HEADLESS=true pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m "login and not (smoke or danger)" -n auto
 
       - name: Generate Test Results
         if: always()

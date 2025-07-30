@@ -96,7 +96,7 @@ class LoginPage(BasePage):
     @property
     def password_textbox(self):
         """Locator for the password input textbox."""
-        return self.page.get_by_role("textbox", name="Passwordx")
+        return self.page.get_by_role("textbox", name="Password")
 
     async def enter_password(self, password: str):
         """

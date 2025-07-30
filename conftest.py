@@ -126,58 +126,11 @@ async def patched_fill(self, *args, timeout=None, **kwargs):
 
 Locator.fill = patched_fill
 
-# class ElementNotFoundException(Exception):
-#     pass
-
-# _original_wait_for = Locator.wait_for
-
-# async def patched_wait_for(self, state="visible", timeout=None):
-#     try:
-#         return await _original_wait_for(self, state=state, timeout=timeout)
-#     except PlaywrightTimeoutError:
-#         raise ElementNotFoundException(
-#             f"Element '{self._selector}' not found after waiting for state '{state}'"
-#         )
-
-# Locator.wait_for = patched_wait_for
-
-# # Patch click
-# _original_click = Locator.click
-
-# async def patched_click(self, *args, timeout=None, **kwargs):
-#     try:
-#         return await _original_click(self, *args, timeout=timeout, **kwargs)
-#     except PlaywrightTimeoutError:
-#         raise ElementNotFoundException(
-#             f"Element '{self._selector}' not found (click timeout after {timeout}ms)"
-#         )
-
-# Locator.click = patched_click
-
-# # Patch fill
-# _original_fill = Locator.fill
-
-# async def patched_fill(self, *args, timeout=None, **kwargs):
-#     try:
-#         return await _original_fill(self, *args, timeout=timeout, **kwargs)
-#     except PlaywrightTimeoutError:
-#         raise ElementNotFoundException(
-#             f"Element '{self._selector}' not found (fill timeout after {timeout}ms)"
-#         )
-
-# Locator.fill = patched_fill
-
 # Thread-safe dictionary for parallel test runs
 _ai_healing_fail_counts = defaultdict(int)
 _ai_healing_lock = threading.Lock()
 _ollama_checked = False
-
-# Get Ollama configuration from environment
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
-
 _ollama_service = OllamaAIHealingService()
-
 
 def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
     """
@@ -185,9 +138,9 @@ def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
     If not, attempt to pull and warm it up by waiting for a real response.
     """
     if not model_name:
-        model_name = OLLAMA_MODEL
+        model_name = _ollama_service.model
     if not host:
-        host = OLLAMA_HOST
+        host = _ollama_service.ollama_host
     try:
         print(f"🤖 Checking if model {model_name} is available...")
         # List available models
@@ -254,11 +207,11 @@ def ensure_ollama_running():
     global _ollama_checked
     if _ollama_checked:
         return True
-    print(f"🤖 Checking Ollama service at {OLLAMA_HOST}...")
+    print(f"🤖 Checking Ollama service at {_ollama_service.ollama_host}...")
     print(f"🤖 Ollama executable path: {shutil.which('ollama')}")
     try:
         # Try to ping the Ollama API
-        response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=3)
+        response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=3)
         if response.status_code == 200:
             print("🤖 Ollama service is already running.")
         else:
@@ -279,7 +232,7 @@ def ensure_ollama_running():
             print("🤖 Waiting for Ollama service to start...")
             for i in range(30):
                 try:
-                    response = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=2)
+                    response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=2)
                     if response.status_code == 200:
                         print("🤖 Ollama service started successfully.")
                         break
@@ -295,7 +248,7 @@ def ensure_ollama_running():
             return False
     # Now ensure the model is loaded and warmed up
     if not ensure_ollama_model_loaded():
-        print(f"❌ Failed to load/warmup model {OLLAMA_MODEL}")
+        print(f"❌ Failed to load/warmup model {_ollama_service.model}")
         return False
     _ollama_checked = True
     return True
@@ -349,6 +302,9 @@ def _capture_ai_healing_context(item, page, error_message):
     try:
         test_name = item.name
         test_key = item.nodeid
+        if not _ollama_service.enabled:
+            print(f"🧠 AI healing is disabled via AI_HEALING_ENABLED flag. Skipping healing for {item.name}")
+            return
         print(f"🧠 Test failed, capturing context for AI healing: {test_name}")
         original_test_code = ""
         try:
@@ -378,8 +334,8 @@ def _capture_ai_healing_context(item, page, error_message):
             "timestamp": datetime.now().isoformat(),
             "browser": os.getenv("BROWSER", settings.BROWSER),
             "headless": os.getenv("HEADLESS", str(settings.HEADLESS)),
-            "ollama_host": OLLAMA_HOST,
-            "ollama_model": OLLAMA_MODEL,
+            "ollama_host": _ollama_service.ollama_host,
+            "ollama_model": _ollama_service.model,
         }
         if page and page_title:
             try:
@@ -418,8 +374,12 @@ def pytest_runtest_makereport(item, call):
         error_message = str(call.excinfo.value) if call.excinfo else "Unknown error"
         _capture_ai_healing_context(item, page, error_message)
         if fail_count > max_reruns:
+            print(f"DEBUG: _ollama_service.enabled ={_ollama_service.enabled})")
+            if not _ollama_service.enabled:
+                print(f"🧠 AI healing is disabled via AI_HEALING_ENABLED flag. Skipping healing for {item.name}")
+                return
             print(f"\n🧠 Final failure detected for {item.name}, triggering AI healing")
-            print(f"🤖 Using Ollama at {OLLAMA_HOST} with model {OLLAMA_MODEL}")
+            print(f"🤖 Using Ollama at {_ollama_service.ollama_host} with model {_ollama_service.model}")
             if not ensure_ollama_running():
                 print("🧠 AI healing skipped - Ollama service or model unavailable")
                 return
