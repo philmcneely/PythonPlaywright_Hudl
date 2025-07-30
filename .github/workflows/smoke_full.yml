@@ -44,8 +44,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
-      # - name: Install Ollama CLI
-      #   run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Install Ollama CLI
+        run: curl -fsSL https://ollama.com/install.sh | sh
 
       # - name: Start Ollama service
       #   run: |
@@ -122,8 +122,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
-      # - name: Install Ollama CLI
-      #   run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Install Ollama CLI
+        run: curl -fsSL https://ollama.com/install.sh | sh
 
       # - name: Start Ollama service
       #   run: |
@@ -260,8 +260,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
-      # - name: Install Ollama CLI
-      #   run: curl -fsSL https://ollama.com/install.sh | sh
+      - name: Install Ollama CLI
+        run: curl -fsSL https://ollama.com/install.sh | sh
 
       # - name: Start Ollama service
       #   run: |
