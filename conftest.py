@@ -61,23 +61,22 @@ Date: [2025-07-29]
 """
 
 import os
+import json
 import pytest
 import pytest_asyncio
-from playwright.async_api import async_playwright
 from config.settings import settings
 from playwright.async_api import Locator, TimeoutError as PlaywrightTimeoutError
 import threading
 from collections import defaultdict
 import asyncio
 from utils.ai_healing import _ollama_service, _capture_ai_healing_context, _find_page_object, ensure_ollama_running
+from utils.browserstack import is_browserstack_enabled
+from utils.debug import debug_print
+from playwright.async_api import async_playwright
 
 # Thread-safe dictionary and lock for tracking test failure counts
 _ai_healing_fail_counts = defaultdict(int)
 _ai_healing_lock = threading.Lock()
-
-# ------------------------------------------------------------------------------
-# Class: ElementNotFoundException
-# ------------------------------------------------------------------------------
 
 class ElementNotFoundException(Exception):
     """
@@ -207,6 +206,7 @@ async def page():
     """
     Async pytest fixture that launches a Playwright browser page based on environment
     variables or settings configuration. Supports Chromium, Firefox, and WebKit.
+    Uses BrowserStack if BROWSERSTACK=true in environment.
 
     Yields:
         Page: An instance of Playwright's Page object for test use.
@@ -214,24 +214,47 @@ async def page():
     Raises:
         ValueError: If an unsupported browser name is specified.
     """
-    async with async_playwright() as p:
-        browser_name = os.getenv("BROWSER", settings.BROWSER).lower()
-        headless = os.getenv("HEADLESS", str(settings.HEADLESS)).lower() == "true"
-        browser_options = settings.get_browser_options()
-        browser_options["headless"] = headless
-        if browser_name == "chromium":
-            browser = await p.chromium.launch(**browser_options)
-        elif browser_name == "firefox":
-            browser = await p.firefox.launch(**browser_options)
-        elif browser_name == "webkit":
-            browser = await p.webkit.launch(**browser_options)
-        else:
-            raise ValueError(f"Unsupported BROWSER value: {browser_name}")
-        context = await browser.new_context()
-        page = await context.new_page()
-        print(f"\n Using {browser_name} browser (headless={headless})")
-        yield page
-        await browser.close()
+    if is_browserstack_enabled():
+        caps = {
+            "browser": "chrome",
+            "browser_version": "latest",
+            "os": "osx",
+            "os_version": "sonoma",
+            "name": "Playwright Test",
+            "build": "playwright-python-build-1",
+            "browserstack.username": os.getenv("BROWSERSTACK_USERNAME"),
+            "browserstack.accessKey": os.getenv("BROWSERSTACK_ACCESS_KEY"),
+        }
+        ws_endpoint = (
+            f"wss://cdp.browserstack.com/playwright?caps={json.dumps(caps)}"
+        )
+        async with async_playwright() as p:
+            browser = await p.chromium.connect(ws_endpoint)
+            context = await browser.new_context()
+            page = await context.new_page()
+            print("\n Using BrowserStack cloud browser")
+            yield page
+            await browser.close()
+    else:
+        # ...existing local browser logic...
+        async with async_playwright() as p:
+            browser_name = os.getenv("BROWSER", settings.BROWSER).lower()
+            headless = os.getenv("HEADLESS", str(settings.HEADLESS)).lower() == "true"
+            browser_options = settings.get_browser_options()
+            browser_options["headless"] = headless
+            if browser_name == "chromium":
+                browser = await p.chromium.launch(**browser_options)
+            elif browser_name == "firefox":
+                browser = await p.firefox.launch(**browser_options)
+            elif browser_name == "webkit":
+                browser = await p.webkit.launch(**browser_options)
+            else:
+                raise ValueError(f"Unsupported BROWSER value: {browser_name}")
+            context = await browser.new_context()
+            page = await context.new_page()
+            print(f"\n Using {browser_name} browser (headless={headless})")
+            yield page
+            await browser.close()
 
 # ------------------------------------------------------------------------------
 # Hook: pytest_runtest_makereport
@@ -250,7 +273,7 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
 
-    print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
+    debug_print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
 
     setattr(item, "rep_" + rep.when, rep)
 
@@ -263,7 +286,7 @@ def pytest_runtest_makereport(item, call):
             _ai_healing_fail_counts[test_key] += 1
             fail_count = _ai_healing_fail_counts[test_key]
 
-        print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
+        debug_print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
 
         # Capture context on EVERY failure (for screenshot, etc.)
         page = _find_page_object(item)

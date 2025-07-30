@@ -39,8 +39,9 @@ import time
 import shutil
 import asyncio
 from config.settings import settings
-
 import ollama
+
+from utils.debug import debug_print
 
 # ------------------------------------------------------------------------------
 # Class: OllamaAIHealingService
@@ -54,9 +55,6 @@ class OllamaAIHealingService:
     """
 
     def __init__(self):
-        """
-        Initialize the OllamaAIHealingService with environment variables.
-        """
         self.model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
         self.enabled = os.getenv("AI_HEALING_ENABLED", "false").lower() == "true"
         self.confidence_threshold = float(os.getenv("AI_HEALING_CONFIDENCE", "0.7"))
@@ -67,47 +65,27 @@ class OllamaAIHealingService:
     async def capture_failure_context(self, page, error, test_name, test_function):
         """
         Capture all context needed for AI analysis including URL, title, screenshot, and DOM.
-
-        Args:
-            page: Playwright page object
-            error: Exception instance from test failure
-            test_name: Name of the test function
-            test_function: The test function object
-
-        Returns:
-            tuple: (context dict, screenshot path or None)
         """
         context = {
             "test_name": test_name,
             "error_message": str(error),
             "error_type": type(error).__name__,
-            "test_docstring": test_function.__doc__ or "",
+            "test_docstring": getattr(test_function, "__doc__", ""),
         }
-
         screenshot_path = None
         try:
             if page:
-                context.update({
-                    "url": await page.url(),
-                    "title": await page.title(),
-                })
-
-                # Capture screenshot
+                context["url"] = await page.url()
+                context["title"] = await page.title()
                 screenshot_dir = Path("screenshots")
                 screenshot_dir.mkdir(exist_ok=True)
                 screenshot_path = screenshot_dir / f"{test_name}_ai_healing.png"
-
                 await page.screenshot(path=str(screenshot_path))
                 context["screenshot_path"] = str(screenshot_path)
-
-                # Capture DOM (truncated for Ollama)
                 dom_content = await page.content()
-                # Limit DOM size for Ollama context window
                 context["dom"] = dom_content[:5000] + "..." if len(dom_content) > 5000 else dom_content
-
         except Exception as e:
             context["capture_error"] = str(e)
-
         return context, screenshot_path
 
     def _build_healing_prompt(self, context, original_test_code):
@@ -321,29 +299,29 @@ class OllamaAIHealingService:
             dict: Parsed Ollama response or error dict
         """
         try:
-            #print("🤖 [DEBUG] Building healing prompt...")
+            debug_print("🤖 [DEBUG] Building healing prompt...")
             prompt = self._build_healing_prompt(context, original_test_code)
-            #print(f"🤖 [DEBUG] Prompt built:\n{prompt}")
+            debug_print(f"🤖 [DEBUG] Prompt built:\n{prompt}")
 
-            #print("🤖 [DEBUG] Querying Ollama service...")
+            debug_print("🤖 [DEBUG] Querying Ollama service...")
             raw_response = self._query_ollama(prompt, screenshot_path)
-            #print(f"🤖 [DEBUG] Raw Ollama response:\n{raw_response}")
+            debug_print(f"🤖 [DEBUG] Raw Ollama response:\n{raw_response}")
 
             if raw_response:
-                #print("🤖 [DEBUG] Parsing Ollama response...")
+                debug_print("🤖 [DEBUG] Parsing Ollama response...")
                 parsed_response = self._parse_ollama_response(raw_response)
 
                 if parsed_response is None:
-                    #print("🤖 [DEBUG] Parsed response is None, returning error dict")
+                    debug_print("🤖 [DEBUG] Parsed response is None, returning error dict")
                     return {"error": "Failed to parse Ollama response"}
 
                 # Add raw response for debugging
                 parsed_response['raw_ollama_response'] = raw_response
 
-                #print(f"🤖 [DEBUG] Parsed Ollama response:\n{parsed_response}")
+                debug_print(f"🤖 [DEBUG] Parsed Ollama response:\n{parsed_response}")
                 return parsed_response
 
-            #print("🤖 [DEBUG] No response received from Ollama")
+            debug_print("🤖 [DEBUG] No response received from Ollama")
             return {"error": "No response from Ollama"}
 
         except Exception as e:
@@ -599,7 +577,6 @@ def stop_ollama_model():
 # ------------------------------------------------------------------------------
 
 _ollama_checked = False
-_ollama_service = OllamaAIHealingService()
 
 # ------------------------------------------------------------------------------
 # Function: ensure_ollama_model_loaded
