@@ -28,6 +28,8 @@ class Settings:
     # Allure Configuration - not using atm
     ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
 
+    DEBUG_MSG: bool = os.getenv("DEBUG_MSG", "false").lower() == "true" 
+
     @classmethod
     def get_browser_options(cls) -> dict:
         """Get browser launch options."""

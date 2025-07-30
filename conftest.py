@@ -70,14 +70,11 @@ import threading
 from collections import defaultdict
 import asyncio
 from utils.ai_healing import _ollama_service, _capture_ai_healing_context, _find_page_object, ensure_ollama_running
+from utils.debug import debug_print
 
 # Thread-safe dictionary and lock for tracking test failure counts
 _ai_healing_fail_counts = defaultdict(int)
 _ai_healing_lock = threading.Lock()
-
-# ------------------------------------------------------------------------------
-# Class: ElementNotFoundException
-# ------------------------------------------------------------------------------
 
 class ElementNotFoundException(Exception):
     """
@@ -250,7 +247,7 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     rep = outcome.get_result()
 
-    print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
+    debug_print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
 
     setattr(item, "rep_" + rep.when, rep)
 
@@ -263,7 +260,7 @@ def pytest_runtest_makereport(item, call):
             _ai_healing_fail_counts[test_key] += 1
             fail_count = _ai_healing_fail_counts[test_key]
 
-        print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
+        debug_print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
 
         # Capture context on EVERY failure (for screenshot, etc.)
         page = _find_page_object(item)
