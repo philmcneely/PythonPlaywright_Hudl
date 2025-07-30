@@ -308,9 +308,17 @@ You can see some example reports and attempts at fixing the files in the example
 ## Directory Structure
 
 - `.env.dev`, `.env.test`, `.env.prod` — Environment variable files
+- `conftest.py` — Has config settings and soem global objects/methods
+- `pytest.ini` — Pytest configurations and startup settings
 - `requirements_with_versions.txt` — Python dependencies
 - `allure-report/` — Generated Allure HTML report
 - `allure-results/` — Allure raw results
+- `example_ai_reports/` — Example AI Reports and "fixed" code
+- `pages/` — Page object model files go here
+- `utils/` — Utilities go here
+- `data/` — Test data goes here
+- `config/` — Settings files here
+- `tests/` — Test files go here
 - `screenshots/` — Test screenshots
 
 ---
