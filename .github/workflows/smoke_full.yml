@@ -44,7 +44,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
           pip install ollama
-          ollama pull gemma2:2b
 
       
       - name: Cache Playwright browsers
