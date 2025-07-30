@@ -204,7 +204,7 @@ Everything is already configured to run a smoke test, then if that passes it wil
 ---
 
 
-## 11. AI Self healing
+## 12. AI Self healing
 
 Install Ollama Python library
 
@@ -290,7 +290,88 @@ Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_t
 ```
 
 You can see some example reports and attempts at fixing the files in the example_ai_reports folder
+
+
+## 12. BrowserStack Integration
+
+You can run your Playwright tests on real browsers in the cloud using [BrowserStack](https://www.browserstack.com/). This is useful for cross-browser and cross-OS testing without maintaining your own infrastructure.
+
+### 1. Prerequisites
+
+- You must have a [BrowserStack account](https://www.browserstack.com/users/sign_up).
+- Your account's **Username** and **Access Key** (found in your BrowserStack dashboard).
+
+### 2. Install Required Python Package
+
+Install the BrowserStack Local Python bindings:
+
+```sh
+pip install browserstack-local
+```
+
+### 3. Set BrowserStack Credentials
+
+Add the following to your `.env.dev` (or relevant `.env` file):
+
+```
+BROWSERSTACK_USERNAME=your_browserstack_username
+BROWSERSTACK_ACCESS_KEY=your_browserstack_access_key
+BROWSERSTACK_ENABLED=true
+```
+
+> **Note:** Set `BROWSERSTACK_ENABLED=false` to run tests locally.
+
+### 4. How It Works
+
+When `BROWSERSTACK_ENABLED=true`, the test runner will:
+- Connect to BrowserStack using your credentials.
+- Launch the specified browser/OS in the cloud.
+- Run your Playwright tests remotely.
+
+When `BROWSERSTACK_ENABLED=false`, tests run locally as usual.
+
+### 5. Running Tests on BrowserStack
+
+Activate your virtual environment and run:
+
+```sh
+BROWSERSTACK_ENABLED=true pytest --alluredir=allure-results
+```
+
+You can also set the environment variable in your `.env.dev` file.
+
+### 6. Customizing Browser/OS
+
+Edit the capabilities in the `conftest.py` file under the `caps` dictionary to change browser, version, OS, etc. Example:
+
+```python
+caps = {
+    "browser": "chrome",
+    "browser_version": "latest",
+    "os": "osx",
+    "os_version": "sonoma",
+    "name": "Playwright Test",
+    "build": "playwright-python-build-1",
+    "browserstack.username": os.getenv("BROWSERSTACK_USERNAME"),
+    "browserstack.accessKey": os.getenv("BROWSERSTACK_ACCESS_KEY"),
+}
+```
+
+See [BrowserStack Playwright Capabilities](https://www.browserstack.com/docs/automate/playwright/python#capabilities) for more options.
+
+### 7. Viewing Results
+
+- Test results and screenshots will be available in your BrowserStack dashboard.
+- Allure reports will still be generated locally if you use `--alluredir`.
+
 ---
+
+**Tip:**  
+You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK_ENABLED` variable, without changing your test code.
+
+---
+
+
 
 ## Troubleshooting
 

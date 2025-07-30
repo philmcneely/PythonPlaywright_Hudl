@@ -44,6 +44,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
+      - name: Install Browserstack SDK
+        run: pip install browserstack-local
+
       - name: Install Ollama CLI
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
@@ -123,6 +126,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
+
+      - name: Install Browserstack SDK
+        run: pip install browserstack-local
 
       - name: Install Ollama CLI
         run: |
@@ -263,6 +269,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
+
+      - name: Install Browserstack SDK
+        run: pip install browserstack-local
 
       - name: Install Ollama CLI
         run: |
