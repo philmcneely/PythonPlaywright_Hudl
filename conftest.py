@@ -345,7 +345,7 @@ def pytest_runtest_makereport(item, call):
             "screenshot_path": screenshot_path,
         }
 
-        #this duplicates code in screenshot_decorator, but only runs if ai healing on
+        # This duplicates code in screenshot_decorator, but only runs if AI healing is on
         if screenshot_path and os.path.exists(screenshot_path):
             with open(screenshot_path, "rb") as image_file:
                 allure.attach(

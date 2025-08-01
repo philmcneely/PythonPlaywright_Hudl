@@ -103,7 +103,7 @@ class OllamaAIHealingService:
                 await page.screenshot(path=str(screenshot_path))
                 context["screenshot_path"] = str(screenshot_path)
                 dom_content = await page.content()
-                #remove excess css since we want asmaller htl contxt to pass to the LLM
+                #remove excess css since we want a smaller htl contxt to pass to the LLM
                 dom_content = strip_style_tags(dom_content)
                 context["dom"] = (
                     dom_content[:self.context_window] + "..."
