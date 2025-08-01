@@ -62,6 +62,7 @@ Date: [2025-07-29]
 
 import os
 import json
+import allure
 import pytest
 import pytest_asyncio
 from config.settings import settings
@@ -69,7 +70,7 @@ from playwright.async_api import Locator, TimeoutError as PlaywrightTimeoutError
 import threading
 from collections import defaultdict
 import asyncio
-from utils.ai_healing import _ollama_service, _capture_ai_healing_context, _find_page_object, ensure_ollama_running
+from utils.ai_healing import get_ollama_service, find_page_object, ensure_ollama_ready
 from utils.browserstack import is_browserstack_enabled
 from utils.debug import debug_print
 from playwright.async_api import async_playwright
@@ -77,6 +78,8 @@ from playwright.async_api import async_playwright
 # Thread-safe dictionary and lock for tracking test failure counts
 _ai_healing_fail_counts = defaultdict(int)
 _ai_healing_lock = threading.Lock()
+
+ollama_service = get_ollama_service()
 
 class ElementNotFoundException(Exception):
     """
@@ -259,7 +262,6 @@ async def page():
 # ------------------------------------------------------------------------------
 # Hook: pytest_runtest_makereport
 # ------------------------------------------------------------------------------
-
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
     """
@@ -272,6 +274,10 @@ def pytest_runtest_makereport(item, call):
     """
     outcome = yield
     rep = outcome.get_result()
+
+    # Skip all AI healing logic if disabled
+    if not ollama_service.enabled:
+        return
 
     debug_print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
 
@@ -288,30 +294,85 @@ def pytest_runtest_makereport(item, call):
 
         debug_print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
 
-        # Capture context on EVERY failure (for screenshot, etc.)
-        page = _find_page_object(item)
+        # Capture context on EVERY failure (for screenshot, DOM, etc.)
+        page = find_page_object(item)
         error_message = str(call.excinfo.value) if call.excinfo else "Unknown error"
-        _capture_ai_healing_context(item, page, error_message)
+
+        # Use async capture_failure_context for full context (including DOM)
+        if page:
+            try:
+                context, screenshot_path = asyncio.get_event_loop().run_until_complete(
+                    ollama_service.capture_failure_context(
+                        page, error_message, item.name, getattr(item.function, "__func__", None)
+                    )
+                )
+            except Exception as e:
+                print(f"🧠 Error capturing failure context: {e}")
+                context = {
+                    "test_name": item.name,
+                    "error_message": error_message,
+                    "error_type": type(call.excinfo.value).__name__ if call.excinfo else "Unknown",
+                    "test_docstring": getattr(getattr(item.function, "__func__", None), "__doc__", ""),
+                    "capture_error": str(e),
+                    "dom": f"DOM not available due to error: {e}",
+                }
+        else:
+            context = {
+                "test_name": item.name,
+                "error_message": error_message,
+                "error_type": type(call.excinfo.value).__name__ if call.excinfo else "Unknown",
+                "test_docstring": getattr(getattr(item.function, "__func__", None), "__doc__", ""),
+                "capture_error": "No page object found",
+                "dom": "DOM not available: No page object found",
+            }
+
+        # Try to get the original test code
+        original_test_code = ""
+        try:
+            test_file = item.fspath
+            with open(test_file, 'r') as f:
+                original_test_code = f.read()
+        except Exception as e:
+            print(f"Warning: Could not read test file: {e}")
+
+        # Store context for later AI healing
+        if not hasattr(ollama_service, '_pending_contexts'):
+            ollama_service._pending_contexts = {}
+        ollama_service._pending_contexts[test_key] = {
+            "test_name": item.name,
+            "context": context,
+            "original_test_code": original_test_code,
+            "screenshot_path": screenshot_path,
+        }
+
+        #this duplicates code in screenshot_decorator, but only runs if ai healing on
+        if screenshot_path and os.path.exists(screenshot_path):
+            with open(screenshot_path, "rb") as image_file:
+                allure.attach(
+                    image_file.read(),
+                    name=f"AI Healing Screenshot: {item.name}",
+                    attachment_type=allure.attachment_type.PNG
+        )
 
         # Only trigger AI healing on the final failure
         if fail_count > max_reruns:
             print(f"\n🧠 Final failure detected for {item.name}, triggering AI healing")
-            if hasattr(_ollama_service, '_pending_contexts'):
-                context_data = _ollama_service._pending_contexts.get(test_key)
+            if hasattr(ollama_service, '_pending_contexts'):
+                context_data = ollama_service._pending_contexts.get(test_key)
                 if not context_data:
-                    context_data = _ollama_service._pending_contexts.get(item.name)
-                if context_data and _ollama_service.enabled:
-                    if not ensure_ollama_running():
+                    context_data = ollama_service._pending_contexts.get(item.name)
+                if context_data and ollama_service.enabled:
+                    if not ensure_ollama_ready():
                         print("🧠 AI healing skipped - Ollama service or model unavailable")
                         return
                     try:
-                        ai_response = _ollama_service.call_ollama_healing(
+                        ai_response = ollama_service.call_ollama_healing(
                             context_data["context"],
                             context_data["original_test_code"],
                             context_data["screenshot_path"]
                         )
                         if ai_response:
-                            asyncio.run(_ollama_service.generate_healing_report(
+                            asyncio.run(ollama_service.generate_healing_report(
                                 context_data["test_name"],
                                 ai_response,
                                 context_data["context"]
@@ -319,16 +380,16 @@ def pytest_runtest_makereport(item, call):
                         else:
                             print(f"🧠 Ollama analysis failed for {item.name}")
                         # Clean up
-                        if test_key in _ollama_service._pending_contexts:
-                            del _ollama_service._pending_contexts[test_key]
-                        if item.name in _ollama_service._pending_contexts:
-                            del _ollama_service._pending_contexts[item.name]
+                        if test_key in ollama_service._pending_contexts:
+                            del ollama_service._pending_contexts[test_key]
+                        if item.name in ollama_service._pending_contexts:
+                            del ollama_service._pending_contexts[item.name]
                     except Exception as e:
                         print(f"🧠 AI healing hook failed: {e}")
                 else:
                     if not context_data:
                         print(f"🧠 No context data found for {item.name}")
-                    if not _ollama_service.enabled:
+                    if not ollama_service.enabled:
                         print(f"🧠 AI healing disabled for {item.name}")
             else:
                 print(f"🧠 No pending contexts found")

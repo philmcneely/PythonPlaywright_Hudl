@@ -21,13 +21,13 @@ Environment Variables:
     AI_HEALING_CONFIDENCE: Confidence threshold for healed tests (default: 0.7)
     OLLAMA_HOST: Ollama server URL (default: http://localhost:11434)
     OLLAMA_TEMPERATURE: Temperature setting for Ollama model (default: 0.1)
+    AI_HEALING_CONTEXT_WINDOW: Max number of DOM characters to include (default: 5000)
 
 Author: PMAC
 Date: [2025-07-29]
 ===============================================================================
 """
 
-import functools
 import json
 import inspect
 import os
@@ -37,11 +37,26 @@ from datetime import datetime
 import subprocess
 import time
 import shutil
-import asyncio
-from config.settings import settings
 import ollama
 
 from utils.debug import debug_print
+import re
+
+# ------------------------------------------------------------------------------
+# Function: strip_style_tags
+# ------------------------------------------------------------------------------
+
+def strip_style_tags(html):
+    """
+    Remove all <style>...</style> tags and their content from the HTML string.
+
+    Args:
+        html (str): The HTML content as a string.
+
+    Returns:
+        str: HTML string with all <style> tags and their contents removed.
+    """
+    return re.sub(r'<style.*?>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
 
 # ------------------------------------------------------------------------------
 # Class: OllamaAIHealingService
@@ -60,6 +75,7 @@ class OllamaAIHealingService:
         self.confidence_threshold = float(os.getenv("AI_HEALING_CONFIDENCE", "0.7"))
         self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))
+        self.context_window = int(os.getenv("AI_HEALING_CONTEXT_WINDOW", "5000"))
         self.client = ollama.Client(host=self.ollama_host)
 
     async def capture_failure_context(self, page, error, test_name, test_function):
@@ -74,17 +90,31 @@ class OllamaAIHealingService:
         }
         screenshot_path = None
         try:
+            debug_print(f"[AI Healing] capture_failure_context called for test '{test_name}'")
             if page:
-                context["url"] = await page.url()
-                context["title"] = await page.title()
+                debug_print(f"[AI Healing] Page object is present for test '{test_name}'")
+                context["url"] = page.url  # <-- FIXED: no ()
+                context["title"] = await page.title()  # <-- Only title() is a coroutine
+
                 screenshot_dir = Path("screenshots")
                 screenshot_dir.mkdir(exist_ok=True)
-                screenshot_path = screenshot_dir / f"{test_name}_ai_healing.png"
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                screenshot_path = screenshot_dir / f"{test_name}_{timestamp}_ai_healing.png"
                 await page.screenshot(path=str(screenshot_path))
                 context["screenshot_path"] = str(screenshot_path)
                 dom_content = await page.content()
-                context["dom"] = dom_content[:5000] + "..." if len(dom_content) > 5000 else dom_content
+                #remove excess css since we want asmaller htl contxt to pass to the LLM
+                dom_content = strip_style_tags(dom_content)
+                context["dom"] = (
+                    dom_content[:self.context_window] + "..."
+                    if len(dom_content) > self.context_window
+                    else dom_content
+                )
+                debug_print(f"[AI Healing] DOM captured: {len(context['dom'])} characters for test '{test_name}'")
+            else:
+                debug_print(f"[AI Healing] No page object for test '{test_name}'")
         except Exception as e:
+            debug_print(f"[AI Healing] Exception in capture_failure_context: {e}")
             context["capture_error"] = str(e)
         return context, screenshot_path
 
@@ -468,109 +498,14 @@ class OllamaAIHealingService:
 _ollama_service = OllamaAIHealingService()
 
 # ------------------------------------------------------------------------------
-# Decorator: ai_healing
+# Function: get_ollama_service
 # ------------------------------------------------------------------------------
 
-def ai_healing(func):
+def get_ollama_service():
     """
-    Decorator that captures test failure context and saves it for AI healing.
-    Works with any test that has 'app', 'login_page', or 'page' fixture.
-
-    By convention, any fixture named 'app' or ending with '_page' is assumed
-    to be a page object that has a .page attribute
-
-    Note: This decorator will automatically find page objects from the test's
-    fixture arguments, so you don't need to add 'request' to every test.
-
-    Usage:
-        @ai_healing
-        @pytest.mark.asyncio
-        async def test_something(app):  # No need for 'request' parameter
-            # ... test code ...
+    Returns the singleton OllamaAIHealingService instance.
     """
-    @functools.wraps(func)
-    async def wrapper(*args, **kwargs):
-        if not _ollama_service.enabled:
-            return await func(*args, **kwargs)
-
-        # Find page object using the same scalable logic as screenshot decorator
-        page = None
-        page_source = None
-
-        # Loop through all kwargs to find page objects
-        for key, value in kwargs.items():
-            try:
-                # Check if this is the 'app' fixture with a page attribute
-                if key == "app" and hasattr(value, "page"):
-                    page = value.page
-                    page_source = f"app fixture"
-                    break
-
-                # Check if this is a page object fixture (ends with '_page')
-                elif key.endswith("_page") and hasattr(value, "page"):
-                    page = value.page
-                    page_source = f"{key} fixture"
-                    break
-
-                # Check if this is the raw Playwright 'page' fixture
-                elif key == "page":
-                    page = value
-                    page_source = f"page fixture"
-                    break
-
-            except Exception:
-                continue
-
-        try:
-            # Run the actual test function
-            return await func(*args, **kwargs)
-        except Exception as exc:
-            print(f"\n🧠 Test failed, capturing context for AI healing: {func.__name__}")
-
-            try:
-                # Capture failure context
-                context, screenshot_path = await _ollama_service.capture_failure_context(
-                    page, exc, func.__name__, func
-                )
-
-                # Get original test source
-                original_code = _ollama_service.extract_test_source(func)
-
-                # Generate test key that matches pytest's item.nodeid
-                # Convert module path from dots to file path
-                module_path = func.__module__.replace('.', os.sep) + '.py'
-                test_key = f"{module_path}::{func.__name__}"
-
-                # Save context for the pytest hook to use later
-                if not hasattr(_ollama_service, '_pending_contexts'):
-                    _ollama_service._pending_contexts = {}
-
-                _ollama_service._pending_contexts[test_key] = {
-                    "test_name": func.__name__,
-                    "error_message": str(exc),
-                    "context": context,
-                    "original_test_code": original_code,
-                    "screenshot_path": str(screenshot_path) if screenshot_path else None,
-                }
-                print(f"💾 Context saved for AI healing hook (key: {test_key})")
-
-            except Exception as healing_error:
-                print(f"🧠 Failed to capture context for AI healing: {healing_error}")
-
-            # Re-raise the original exception (let pytest handle retries)
-            raise exc
-
-    return wrapper
-
-# ------------------------------------------------------------------------------
-# Function: stop_ollama_model
-# ------------------------------------------------------------------------------
-
-def stop_ollama_model():
-    """
-    Stop the Ollama model to free resources.
-    """
-    _ollama_service.stop_model()
+    return _ollama_service
 
 # ------------------------------------------------------------------------------
 # Thread-safe dictionaries and locks
@@ -579,26 +514,103 @@ def stop_ollama_model():
 _ollama_checked = False
 
 # ------------------------------------------------------------------------------
-# Function: ensure_ollama_model_loaded
+# Function: _find_page_object
 # ------------------------------------------------------------------------------
 
-def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
+def find_page_object(item):
     """
-    Check if the specified model is available and loaded.
-    If not, attempt to pull and warm it up by waiting for a real response.
+    Find the Playwright page object from pytest test item fixtures.
 
     Args:
-        model_name (str): Model name to check/load
-        host (str): Ollama host URL
-        max_wait (int): Max wait time in seconds
+        item: Pytest test item
 
     Returns:
-        bool: True if model is loaded and ready, False otherwise
+        Playwright page object or None
     """
+    page = None
+    funcargs = getattr(item, 'funcargs', {})
+    if not page:
+        for name, value in funcargs.items():
+            if name == "page" and hasattr(value, 'screenshot'):
+                page = value
+                break
+            elif name == "app" and hasattr(value, "page"):
+                page = value.page
+                break
+            elif name.endswith("_page") and hasattr(value, "screenshot"):
+                page = value
+                break
+            elif hasattr(value, "pages") and value.pages:
+                page = value.pages[0]
+                break
+    return page
+
+# ------------------------------------------------------------------------------
+# Function: ensure_ollama_ready
+# ------------------------------------------------------------------------------
+
+def ensure_ollama_ready(model_name=None, host=None, max_wait=180):
+    """
+    Ensure Ollama service is running and the specified model is loaded and ready.
+
+    Args:
+        model_name (str): Model name to check/load (default: from service)
+        host (str): Ollama host URL (default: from service)
+        max_wait (int): Max wait time in seconds for model warmup
+
+    Returns:
+        bool: True if service and model are available, False otherwise
+    """
+    global _ollama_checked
+    if _ollama_checked:
+        return True
+
     if not model_name:
         model_name = _ollama_service.model
     if not host:
         host = _ollama_service.ollama_host
+
+    print(f"🤖 Checking Ollama service at {host}...")
+    print(f"🤖 Ollama executable path: {shutil.which('ollama')}")
+    try:
+        # Try to ping the Ollama API
+        response = requests.get(f"{host}/api/tags", timeout=3)
+        if response.status_code == 200:
+            print("🤖 Ollama service is already running.")
+        else:
+            print(f"🤖 Ollama service responded with status {response.status_code}")
+    except Exception:
+        print("🤖 Ollama service not running, attempting to start...")
+        try:
+            if not shutil.which("ollama"):
+                print("❌ Ollama command not found. Please install Ollama first.")
+                return False
+            print("🤖 Attempting to start Ollama with: ollama serve")
+            proc = subprocess.Popen(
+                ["ollama", "serve"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            print(f"🤖 Ollama process started with PID: {proc.pid}")
+            print("🤖 Waiting for Ollama service to start...")
+            for i in range(30):
+                try:
+                    response = requests.get(f"{host}/api/tags", timeout=2)
+                    if response.status_code == 200:
+                        print("🤖 Ollama service started successfully.")
+                        break
+                except Exception:
+                    time.sleep(1)
+                    if i % 5 == 0:
+                        print(f"🤖 Still waiting for Ollama... ({i+1}/30)")
+            else:
+                print("❌ Failed to start Ollama service within 30 seconds.")
+                return False
+        except Exception as e:
+            print(f"❌ Could not start Ollama service: {e}")
+            return False
+
+    # Now ensure the model is loaded and warmed up
     try:
         print(f"🤖 Checking if model {model_name} is available...")
         # List available models
@@ -639,6 +651,7 @@ def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
                     response_data = gen_resp.json()
                     if "response" in response_data and response_data["response"].strip():
                         print(f"🤖 Model {model_name} is loaded and ready.")
+                        _ollama_checked = True
                         return True
                     elif "error" in response_data:
                         print(f"🤖 Model not ready yet: {response_data['error']}")
@@ -656,189 +669,3 @@ def ensure_ollama_model_loaded(model_name=None, host=None, max_wait=180):
         print(f"❌ Error checking/loading model {model_name}: {e}")
         return False
 
-# ------------------------------------------------------------------------------
-# Function: ensure_ollama_running
-# ------------------------------------------------------------------------------
-
-def ensure_ollama_running():
-    """
-    Check if Ollama service is running and start it if not.
-    Also ensures the specified model is loaded and ready.
-
-    Returns:
-        bool: True if service and model are available, False otherwise
-    """
-    global _ollama_checked
-    if _ollama_checked:
-        return True
-    print(f"🤖 Checking Ollama service at {_ollama_service.ollama_host}...")
-    print(f"🤖 Ollama executable path: {shutil.which('ollama')}")
-    try:
-        # Try to ping the Ollama API
-        response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=3)
-        if response.status_code == 200:
-            print("🤖 Ollama service is already running.")
-        else:
-            print(f"🤖 Ollama service responded with status {response.status_code}")
-    except Exception:
-        print("🤖 Ollama service not running, attempting to start...")
-        try:
-            if not shutil.which("ollama"):
-                print("❌ Ollama command not found. Please install Ollama first.")
-                return False
-            print("🤖 Attempting to start Ollama with: ollama serve")
-            proc = subprocess.Popen(
-                ["ollama", "serve"], 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL
-            )
-            print(f"🤖 Ollama process started with PID: {proc.pid}")
-            print("🤖 Waiting for Ollama service to start...")
-            for i in range(30):
-                try:
-                    response = requests.get(f"{_ollama_service.ollama_host}/api/tags", timeout=2)
-                    if response.status_code == 200:
-                        print("🤖 Ollama service started successfully.")
-                        break
-                except Exception:
-                    time.sleep(1)
-                    if i % 5 == 0:
-                        print(f"🤖 Still waiting for Ollama... ({i+1}/30)")
-            else:
-                print("❌ Failed to start Ollama service within 30 seconds.")
-                return False
-        except Exception as e:
-            print(f"❌ Could not start Ollama service: {e}")
-            return False
-    # Now ensure the model is loaded and warmed up
-    if not ensure_ollama_model_loaded():
-        print(f"❌ Failed to load/warmup model {_ollama_service.model}")
-        return False
-    _ollama_checked = True
-    return True
-
-# ------------------------------------------------------------------------------
-# Function: _find_page_object
-# ------------------------------------------------------------------------------
-
-def _find_page_object(item):
-    """
-    Find the Playwright page object from pytest test item fixtures.
-
-    Args:
-        item: Pytest test item
-
-    Returns:
-        Playwright page object or None
-    """
-    page = None
-    funcargs = getattr(item, 'funcargs', {})
-    if not page:
-        for name, value in funcargs.items():
-            if name == "page" and hasattr(value, 'screenshot'):
-                page = value
-                break
-            elif name == "app" and hasattr(value, "page"):
-                page = value.page
-                break
-            elif name.endswith("_page") and hasattr(value, "screenshot"):
-                page = value
-                break
-            elif hasattr(value, "pages") and value.pages:
-                page = value.pages[0]
-                break
-    return page
-
-# ------------------------------------------------------------------------------
-# Async Function: _capture_page_info
-# ------------------------------------------------------------------------------
-
-async def _capture_page_info(page, screenshot_path):
-    """
-    Capture screenshot and page title asynchronously.
-
-    Args:
-        page: Playwright page object
-        screenshot_path (str): Path to save screenshot
-
-    Returns:
-        str: Page title
-    """
-    await page.screenshot(path=screenshot_path)
-    title = await page.title()
-    return title
-
-# ------------------------------------------------------------------------------
-# Function: _capture_ai_healing_context
-# ------------------------------------------------------------------------------
-
-def _capture_ai_healing_context(item, page, error_message):
-    """
-    Capture test failure context for AI healing and save it in the global service.
-
-    Args:
-        item: Pytest test item
-        page: Playwright page object
-        error_message (str): Error message from test failure
-
-    Returns:
-        None
-    """
-    try:
-        test_name = item.name
-        test_key = item.nodeid
-        if not _ollama_service.enabled:
-            print(f"🧠 AI healing is disabled via AI_HEALING_ENABLED flag. Skipping healing for {item.name}")
-            return
-        print(f"🧠 Test failed, capturing context for AI healing: {test_name}")
-        original_test_code = ""
-        try:
-            test_file = item.fspath
-            with open(test_file, 'r') as f:
-                original_test_code = f.read()
-        except Exception as e:
-            print(f"Warning: Could not read test file: {e}")
-        screenshot_path = None
-        page_title = None
-        if page:
-            try:
-                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-                screenshot_filename = f"{test_key.replace('::', '_').replace('/', '_')}_{timestamp}.png"
-                screenshot_path = f"screenshots/{screenshot_filename}"
-                os.makedirs("screenshots", exist_ok=True)
-                page_title = asyncio.get_event_loop().run_until_complete(
-                    _capture_page_info(page, screenshot_path)
-                )
-                print(f"Screenshot saved and attached to Allure: {screenshot_path}")
-            except Exception as e:
-                print(f"Warning: Could not capture screenshot: {e}")
-        context = {
-            "test_name": test_name,
-            "test_file": str(item.fspath),
-            "error_message": error_message,
-            "timestamp": datetime.now().isoformat(),
-            "browser": os.getenv("BROWSER", settings.BROWSER),
-            "headless": os.getenv("HEADLESS", str(settings.HEADLESS)),
-            "ollama_host": _ollama_service.ollama_host,
-            "ollama_model": _ollama_service.model,
-        }
-        if page and page_title:
-            try:
-                context.update({
-                    "current_url": getattr(page, 'url', None),
-                    "page_title": page_title,
-                    "viewport_size": getattr(page, 'viewport_size', None),
-                })
-            except Exception as e:
-                print(f"Warning: Could not capture additional page context: {e}")
-        if not hasattr(_ollama_service, '_pending_contexts'):
-            _ollama_service._pending_contexts = {}
-        _ollama_service._pending_contexts[test_key] = {
-            "test_name": test_name,
-            "context": context,
-            "original_test_code": original_test_code,
-            "screenshot_path": screenshot_path,
-        }
-        print(f"💾 Context saved for AI healing hook (key: {test_key})")
-    except Exception as e:
-        print(f"🧠 Error capturing AI healing context: {e}")

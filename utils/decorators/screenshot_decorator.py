@@ -59,7 +59,9 @@ def screenshot_on_failure(func):
             return await func(*args, **kwargs)
         except Exception as exc:
             # Test failed - attempt to capture screenshot if enabled
-            if page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
+            if os.getenv("AI_HEALING_ENABLED", "false").lower() == "true":
+                print("AI healing is enabled; skipping regular screenshot capture.")
+            elif page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
                 try:
                     screenshot_dir = Path("screenshots")
                     screenshot_dir.mkdir(exist_ok=True)
