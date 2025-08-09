@@ -371,6 +371,30 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 
 ---
 
+**Regenerate Docs for LLMs:**  
+This project makes use of OneFileLLM: https://github.com/jimmc414/onefilellm
+
+To install:
+```python
+git clone https://github.com/jimmc414/onefilellm.git
+cd onefilellm
+pip install -r requirements.txt
+pip install -e .
+```
+
+For GitHub API access (recommended):
+```python
+export GITHUB_TOKEN="your_personal_access_token"
+```
+
+To regenerate output.xml:
+```python
+python onefilellm.py https://github.com/philmcneely/PythonPlaywright_Hudl
+```
+
+You can also point it at the local repo, check out the docs online.
+
+---
 
 
 ## Troubleshooting
