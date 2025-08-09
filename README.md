@@ -375,7 +375,7 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 This project makes use of OneFileLLM: https://github.com/jimmc414/onefilellm
 
 To install:
-```python
+```bash
 git clone https://github.com/jimmc414/onefilellm.git
 cd onefilellm
 pip install -r requirements.txt
