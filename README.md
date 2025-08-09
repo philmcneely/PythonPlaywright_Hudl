@@ -383,7 +383,7 @@ pip install -e .
 ```
 
 For GitHub API access (recommended):
-```python
+```bash
 export GITHUB_TOKEN="your_personal_access_token"
 ```
 
