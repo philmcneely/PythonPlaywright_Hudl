@@ -1,0 +1,4273 @@
+<onefilellm_output>
+<source type="github_repository" url="https://github.com/philmcneely/PythonPlaywright_Hudl">
+
+<file path=".env.example">
+# Environment Configuration
+BASE_URL=https://www.hudl.com/
+TEST_EMAIL=your_test_email@example.com
+TEST_PASSWORD=your_test_password
+
+# Browser Configuration
+BROWSER=chromium
+HEADLESS=false
+SLOW_MO=100
+TIMEOUT=30000
+
+# Test Configuration
+RETRY_COUNT=3
+RETRY_DELAY=1000
+SCREENSHOT_ON_FAILURE=true
+VIDEO_ON_FAILURE=true
+
+# Allure Reporting
+ALLURE_RESULTS_DIR=allure-results
+
+# Users for Login
+USER_PM_EMAIL=email@gmail.com
+USER_PM_PASSWORD=password
+USER_PM_ROLE=user
+USER_PM_FIRST=Paul
+USER_PM_LAST=Manning
+USER_PM_INITIALS=PM
+
+USER_ADMIN_EMAIL=admin@example.com
+USER_ADMIN_PASSWORD=AdminSecret123
+USER_ADMIN_ROLE=admin
+USER_ADMIN_FIRST=Bob
+USER_ADMIN_LAST=Admin
+USER_ADMIN_INITIALS=BA
+
+USER_COACH_EMAIL=coach@example.com
+USER_COACH_PASSWORD=CoachPass456
+USER_COACH_ROLE=coach
+USER_COACH_FIRST=Coach
+USER_COACH_LAST=Bob
+USER_COACH_INITIALS=CB
+
+# Enable/disable AI healing
+AI_HEALING_ENABLED=true
+
+# AI service endpoint  
+AI_HEALING_ENDPOINT=http://localhost:8000/heal-test
+
+# Confidence threshold
+AI_HEALING_CONFIDENCE=0.7
+
+#OLLAMA local model info - this is the config default for now
+OLLAMA_MODEL=llama3.1:8b
+OLLAMA_HOST=http://localhost:11434
+
+DEBUG_MSG=false
+
+BROWSERSTACK_USERNAME="your_username"
+BROWSERSTACK_ACCESS_KEY="your_access_key"
+BROWSERSTACK_ENABLED=false
+</file>
+
+<file path=".vscode/settings.json">
+{
+    "python.analysis.extraPaths": [
+        "./pages",
+        "./data"
+    ],
+    "python.analysis.fixAll": ["source.unusedImports"],
+    "editor.codeActionsOnSave": {
+        "source.unusedImports": true,
+        "source.organizeImports": true // Optional: Also sorts imports on save
+    },
+    "python.languageServer": "Pylance" // Ensure Pylance is the active language server
+}
+
+</file>
+
+<file path="README.md">
+
+# Playwright Python Test Setup & Usage
+
+This guide explains how to set up and run Playwright-based Python tests with Allure reporting on **macOS**, **Windows**, and **Linux**.
+
+---
+
+## Prerequisites
+
+**All Platforms:**
+- [Python 3.11+](https://www.python.org/downloads/)
+- [pip](https://pip.pypa.io/en/stable/installation/)
+- [Node.js](https://nodejs.org/) (for Playwright browser installation)
+- [Allure Commandline](https://docs.qameta.io/allure/#_installing_a_commandline)
+- [`python-dotenv`](https://pypi.org/project/python-dotenv/) (for loading `.env` files)
+
+**Windows Only:**
+- [Visual C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+
+**macOS Only:**
+- [Homebrew](https://brew.sh/) (recommended for installing Allure and Node.js)
+
+---
+
+## 1. Clone the Repository
+
+```sh
+git clone https://github.com/your-org/your-repo.git
+cd your-repo
+```
+
+---
+
+## 2. Create Environment Files
+
+Create the environment file(s) you need in the project root:
+
+- `.env.dev` for development
+- `.env.test` for test
+- `.env.prod` for production
+
+Each file should contain the environment variables your tests require, for example:
+
+```
+BASE_URL=https://your-base-url
+API_LOGIN_URL=https://your-api-url
+USER_EMAIL=pm@example.com
+USER_PASSWORD=yourpassword
+# ...and so on for all required variables
+```
+Alternately, these files should be available in your secrets server and may need to be customized for your tests.
+
+---
+
+## 3. Set Up a Python Virtual Environment
+
+**macOS/Linux:**
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows (Command Prompt):**
+
+```cmd
+python -m venv .venv
+.venv\Scriptsctivate
+```
+
+**Windows (PowerShell):**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+
+---
+
+## 4. Install Python Dependencies
+
+```sh
+pip install --upgrade pip
+pip install -r requirements_with_versions.txt
+```
+
+Make sure your `requirements_with_versions.txt` includes `python-dotenv`:
+
+```
+python-dotenv
+```
+
+---
+
+## 5. Install Playwright Browsers
+
+```sh
+python -m playwright install --with-deps
+```
+
+---
+
+## 6. Install Allure Commandline
+
+**macOS (with Homebrew):**
+
+```sh
+brew install allure
+```
+
+**Linux:**
+
+```sh
+sudo apt-get install default-jre
+wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
+tar -xzf allure-2.27.0.tgz
+sudo mv allure-2.27.0 /opt/allure
+sudo ln -s /opt/allure/bin/allure /usr/bin/allure
+```
+
+**Windows:**
+
+- Download the [Allure zip](https://github.com/allure-framework/allure2/releases) and extract it.
+- Add the `bin` folder to your `PATH` environment variable.
+- Open a new terminal and run `allure --version` to verify.
+
+---
+
+## 7. Load Environment Variables Automatically
+
+Add this to your `conftest.py` or at the top of your test entrypoint:
+
+```python
+import os
+from dotenv import load_dotenv
+
+# Choose the environment file you want to load
+env_file = os.getenv("ENV_FILE", ".env.dev")
+load_dotenv(dotenv_path=env_file)
+```
+
+You can set the `ENV_FILE` environment variable to switch between `.env.dev`, `.env.test`, or `.env.prod`.
+
+**Example:**
+
+```sh
+ENV_FILE=.env.test pytest ...
+```
+
+---
+
+## 8. Run the Tests
+
+Run your tests with pytest. For example, to run smoke tests with Allure reporting, reruns and in parallel:
+
+```sh
+pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+```
+
+- Adjust the `-m smoke` marker or other pytest options as needed.
+
+You can also pass env vars on the commandline, for example if you want headed tests or a different browser.
+
+```sh
+BROWSER=firefox HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+```
+
+Adjust as needed.
+
+---
+
+## 9. Generate the Allure Report
+
+```sh
+allure generate allure-results -o allure-report --clean --single-file
+```
+
+---
+
+## 10. View the Allure Report
+
+**macOS:**
+
+```sh
+open allure-report/index.html
+```
+
+**Linux:**
+
+```sh
+xdg-open allure-report/index.html
+```
+
+**Windows:**
+
+Open `allure-report\index.html` in your browser.
+
+---
+
+## 11. Github Actions
+
+Everything is already configured to run a smoke test, then if that passes it will run the full 'login' test suite. All secrets are configured on the repo level, so if you add any, you will need to update the config.
+
+---
+
+
+## 12. AI Self healing
+
+Install Ollama Python library
+
+```sh
+pip install ollama
+```
+
+# Ollama Model Setup for AI Healing
+
+**Check Available Models**
+
+```sh
+ollama list
+```
+
+**Pull a Suitable Model**
+
+### For vision + text analysis (recommended for screenshot analysis):
+
+```sh
+ollama pull llava:7b
+# or
+ollama pull llava:13b
+```
+
+### For text-only analysis (faster, smaller):
+
+```sh
+ollama pull llama3.1:8b
+# or
+ollama pull llama3.2:3b
+```
+
+**Update Your Environment Variable**
+
+Set the model you actually have:
+
+```sh
+export OLLAMA_MODEL=llava:7b
+# or whatever model you pulled
+```
+
+**Test Ollama is Working**
+
+```sh
+ollama run llava:7b "Hello, can you analyze test failures?"
+```
+
+This is not configured on Github Actions due to needing a larger machine runner.
+Reports will be found in /ai_healing_reports
+
+To see this in action, you can run a test specifically created to show it in action by running
+```sh
+AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
+```
+
+This is an example of commandline output
+
+```sh
+🧠 Test failed, capturing context for AI healing: test_login_direct_valid_credentials
+Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_test_login_direct_valid_credentials_2025-07-29_21-37-36.png
+💾 Context saved for AI healing hook (key: tests/login/test_login.py::test_login_direct_valid_credentials)
+
+🧠 Final failure detected for test_login_direct_valid_credentials, triggering AI healing
+🤖 Using Ollama at http://localhost:11434 with model gemma2:2b
+🤖 Checking Ollama service at http://localhost:11434...
+🤖 Ollama executable path: /usr/local/bin/ollama
+🤖 Ollama service is already running.
+🤖 Checking if model gemma2:2b is available...
+🤖 Warming up model gemma2:2b (waiting for a real response)...
+🤖 Model gemma2:2b is loaded and ready.
+🧠 Calling Ollama for AI healing analysis...
+🧠 Querying Ollama model: gemma2:2b
+📸 Including screenshot: screenshots/tests_login_test_login.py_test_login_direct_valid_credentials_2025-07-29_21-37-36.png
+🤖 Raw Ollama response (first 200 chars): ```json
+{
+    "analysis": "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is trying to access an element named 'enter_passwordx' which doesn't exist wi...
+🤖 Found JSON in code block
+✅ Successfully parsed JSON response
+🤖 Full Ollama response: {'analysis': "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is trying to access an element named 'enter_passwordx' which doesn't exist within the LoginPage class. This likely means there's a typo in the test code, or the element name might have been changed.", 'root_cause': 'Typographical error in the test code (e.g., incorrect element name)', 'confidence': 0.95, 'suggested_fix': 'Verify the element names used in the test code against the actual HTML structure of the LoginPage class. Double-check for typos or misspellings.', 'updated_test_code': "```python\n@pytest.mark.login\nasync def test_login_direct_valid_credentials(app):\n    # ... (rest of the code)\n    await app.login_page.enter_passwordx(PERSONAS['user']['password']) \n    # ... (rest of the code)\n```", 'recommendations': "It's recommended to use a robust test framework like pytest for better test organization and error handling.  Consider using assertions to ensure that elements are found correctly, and implement strategies to handle flaky tests effectively.", 'raw_ollama_response': '```json\n{\n    "analysis": "The error message \'LoginPage\' object has no attribute \'enter_passwordx\' indicates that the code is trying to access an element named \'enter_passwordx\' which doesn\'t exist within the LoginPage class. This likely means there\'s a typo in the test code, or the element name might have been changed.",\n    "root_cause": "Typographical error in the test code (e.g., incorrect element name)",\n    "confidence": 0.95,\n    "suggested_fix": "Verify the element names used in the test code against the actual HTML structure of the LoginPage class. Double-check for typos or misspellings.",\n    "updated_test_code": "```python\\n@pytest.mark.login\\nasync def test_login_direct_valid_credentials(app):\\n    # ... (rest of the code)\\n    await app.login_page.enter_passwordx(PERSONAS[\'user\'][\'password\']) \\n    # ... (rest of the code)\\n```",\n    "recommendations": "It\'s recommended to use a robust test framework like pytest for better test organization and error handling.  Consider using assertions to ensure that elements are found correctly, and implement strategies to handle flaky tests effectively." \n}\n```'}
+🧠 AI analysis complete, generating healing report...
+💾 Ollama healed test saved: ai_healing_reports/test_login_direct_valid_credentials_20250729_213826_ollama_healed.py
+```
+
+You can see some example reports and attempts at fixing the files in the example_ai_reports folder
+
+
+## 12. BrowserStack Integration
+
+You can run your Playwright tests on real browsers in the cloud using [BrowserStack](https://www.browserstack.com/). This is useful for cross-browser and cross-OS testing without maintaining your own infrastructure.
+
+### 1. Prerequisites
+
+- You must have a [BrowserStack account](https://www.browserstack.com/users/sign_up).
+- Your account's **Username** and **Access Key** (found in your BrowserStack dashboard).
+
+### 2. Install Required Python Package
+
+Install the BrowserStack Local Python bindings:
+
+```sh
+pip install browserstack-local
+```
+
+### 3. Set BrowserStack Credentials
+
+Add the following to your `.env.dev` (or relevant `.env` file):
+
+```
+BROWSERSTACK_USERNAME=your_browserstack_username
+BROWSERSTACK_ACCESS_KEY=your_browserstack_access_key
+BROWSERSTACK_ENABLED=true
+```
+
+> **Note:** Set `BROWSERSTACK_ENABLED=false` to run tests locally.
+
+### 4. How It Works
+
+When `BROWSERSTACK_ENABLED=true`, the test runner will:
+- Connect to BrowserStack using your credentials.
+- Launch the specified browser/OS in the cloud.
+- Run your Playwright tests remotely.
+
+When `BROWSERSTACK_ENABLED=false`, tests run locally as usual.
+
+### 5. Running Tests on BrowserStack
+
+Activate your virtual environment and run:
+
+```sh
+BROWSERSTACK_ENABLED=true pytest --alluredir=allure-results
+```
+
+You can also set the environment variable in your `.env.dev` file.
+
+### 6. Customizing Browser/OS
+
+Edit the capabilities in the `conftest.py` file under the `caps` dictionary to change browser, version, OS, etc. Example:
+
+```python
+caps = {
+    "browser": "chrome",
+    "browser_version": "latest",
+    "os": "osx",
+    "os_version": "sonoma",
+    "name": "Playwright Test",
+    "build": "playwright-python-build-1",
+    "browserstack.username": os.getenv("BROWSERSTACK_USERNAME"),
+    "browserstack.accessKey": os.getenv("BROWSERSTACK_ACCESS_KEY"),
+}
+```
+
+See [BrowserStack Playwright Capabilities](https://www.browserstack.com/docs/automate/playwright/python#capabilities) for more options.
+
+### 7. Viewing Results
+
+- Test results and screenshots will be available in your BrowserStack dashboard.
+- Allure reports will still be generated locally if you use `--alluredir`.
+
+---
+
+**Tip:**  
+You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK_ENABLED` variable, without changing your test code.
+
+---
+
+
+
+## Troubleshooting
+
+- **Missing .env file:**  
+  Make sure you have created the correct `.env.<env>` file with all required variables.
+- **Virtual environment activation issues:**  
+  Double-check the activation command for your OS and shell.
+- **Allure not found:**  
+  Ensure Allure is installed and available in your `PATH`.
+- **Windows build errors:**  
+  Install the Visual C++ Build Tools as described above.
+
+---
+
+## Directory Structure
+
+- `.env.dev`, `.env.test`, `.env.prod` — Environment variable files
+- `conftest.py` — Has config settings and soem global objects/methods
+- `pytest.ini` — Pytest configurations and startup settings
+- `requirements_with_versions.txt` — Python dependencies
+- `allure-report/` — Generated Allure HTML report
+- `allure-results/` — Allure raw results
+- `example_ai_reports/` — Example AI Reports and "fixed" code
+- `pages/` — Page object model files go here
+- `utils/` — Utilities go here
+- `data/` — Test data goes here
+- `config/` — Settings files here
+- `tests/` — Test files go here
+- `screenshots/` — Test screenshots
+
+---
+
+**Happy testing! 🚀**
+
+</file>
+
+<file path="config/__init__.py">
+
+</file>
+
+<file path="config/settings.py">
+"""
+Configuration settings for the test framework.
+Loads environment variables and provides default values.
+"""
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+env = os.getenv("ENV", "dev")  # default to 'dev' if ENV is not set
+dotenv_file = f".env.{env}"
+load_dotenv(".env")  # always load base first
+load_dotenv(dotenv_file, override=False)
+
+class Settings:
+    """Application settings loaded from environment variables."""
+    # Browser Configuration
+    BROWSER: str = os.getenv("BROWSER", "chromium")
+    HEADLESS: bool = os.getenv("HEADLESS", "false").lower() == "true"
+    SLOW_MO: int = int(os.getenv("SLOW_MO", "100"))
+    TIMEOUT: int = int(os.getenv("TIMEOUT", "30000"))
+    
+    # Test Configuration
+    RETRY_COUNT: int = int(os.getenv("RETRY_COUNT", "3"))
+    RETRY_DELAY: int = int(os.getenv("RETRY_DELAY", "1000"))
+    SCREENSHOT_ON_FAILURE: bool = os.getenv("SCREENSHOT_ON_FAILURE", "true").lower() == "true"
+    VIDEO_ON_FAILURE: bool = os.getenv("VIDEO_ON_FAILURE", "true").lower() == "true"
+    
+    # Allure Configuration - not using atm
+    ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
+
+    DEBUG_MSG: bool = os.getenv("DEBUG_MSG", "false").lower() == "true" 
+
+    @classmethod
+    def get_browser_options(cls) -> dict:
+        """Get browser launch options."""
+        return {
+            "headless": cls.HEADLESS,
+            "slow_mo": cls.SLOW_MO,
+            "args": [
+                "--disable-blink-features=AutomationControlled",
+                "--disable-extensions",
+                "--no-sandbox",
+                "--disable-dev-shm-usage"
+            ]
+        }
+
+# Create a global settings instance
+settings = Settings()
+
+</file>
+
+<file path="conftest.py">
+"""
+===============================================================================
+Playwright Browser Configuration and Page Fixture with Auto AI Healing
+===============================================================================
+
+This module provides the core Playwright browser configuration and page fixture
+for automated testing across multiple browsers (Chromium, Firefox, WebKit).
+It handles browser selection, headless mode configuration, and provides a 
+reusable async page fixture for all test modules.
+
+NEW: Automatic AI healing is applied to ALL tests without needing decorators!
+NEW: Automatically starts Ollama service if not running!
+NEW: Automatically loads and warms up the specified model if not available!
+
+Features:
+    ✓ Multi-browser support (Chromium, Firefox, WebKit) via environment variables
+    ✓ Configurable headless/headed mode for debugging and CI/CD environments
+    ✓ Centralized browser options management through settings configuration
+    ✓ Automatic browser cleanup after test execution
+    ✓ Runtime browser selection without code changes
+    ✓ AUTOMATIC AI healing for all test failures (no decorators needed!)
+    ✓ Auto-starts Ollama service if not running
+    ✓ Auto-loads and warms up specified model if not available
+    ✓ Configurable Ollama host and model via environment variables
+    ✓ Thread-safe for parallel test execution
+
+Environment Variables:
+    BROWSER: Specifies which browser to use (chromium|firefox|webkit)
+    HEADLESS: Controls headless mode (true|false)
+    OLLAMA_HOST: Ollama server URL (default: http://localhost:11434)
+    OLLAMA_MODEL: Model to use for AI healing (default: llama3.1:8b)
+
+Usage Examples:
+    # Run tests with default browser and AI healing
+    pytest
+
+    # Run tests with specific browser, retries, and custom Ollama settings
+    BROWSER=firefox OLLAMA_MODEL=llama3.2:3b pytest --reruns 3
+    OLLAMA_HOST=http://remote-server:11434 pytest --reruns 2
+
+    # Run tests in headed mode for debugging
+    HEADLESS=false pytest
+
+Fixture Usage:
+    @pytest.mark.asyncio
+    async def test_example(page):
+        await page.goto("https://example.com")
+        # Test implementation here...
+        # AI healing will automatically capture context on failure!
+
+Dependencies:
+    - playwright.async_api: Async Playwright API
+    - pytest_asyncio: Async test support
+    - config.settings: Application configuration management
+    - utils.ai_healing_decorator_fixed: AI healing service
+    - requests: For Ollama service health checks
+
+Author: PMAC
+Date: [2025-07-29]
+===============================================================================
+"""
+
+import os
+import json
+import allure
+import pytest
+import pytest_asyncio
+from config.settings import settings
+from playwright.async_api import Locator, TimeoutError as PlaywrightTimeoutError
+import threading
+from collections import defaultdict
+import asyncio
+from utils.ai_healing import get_ollama_service, find_page_object, ensure_ollama_ready
+from utils.browserstack import is_browserstack_enabled
+from utils.debug import debug_print
+from playwright.async_api import async_playwright
+
+# Thread-safe dictionary and lock for tracking test failure counts
+_ai_healing_fail_counts = defaultdict(int)
+_ai_healing_lock = threading.Lock()
+
+ollama_service = get_ollama_service()
+
+class ElementNotFoundException(Exception):
+    """
+    Custom exception raised when a Playwright Locator times out waiting for an element.
+    This helps AI healing to detect element-not-found scenarios explicitly.
+    """
+    pass
+
+# ------------------------------------------------------------------------------
+# Function: get_selector
+# ------------------------------------------------------------------------------
+
+def get_selector(locator):
+    """
+    Safely retrieve the selector string from a Playwright Locator object.
+    Falls back to the string representation if the private _selector attribute is missing.
+
+    Args:
+        locator (Locator): Playwright Locator instance.
+
+    Returns:
+        str: Selector string or fallback string representation.
+    """
+    return getattr(locator, "_selector", repr(locator))
+
+# ------------------------------------------------------------------------------
+# Function: patched_wait_for
+# ------------------------------------------------------------------------------
+
+_original_wait_for = Locator.wait_for
+
+async def patched_wait_for(self, state="visible", timeout=None):
+    """
+    Monkey-patched version of Locator.wait_for that raises ElementNotFoundException
+    instead of Playwright's TimeoutError when the element is not found within timeout.
+
+    Args:
+        state (str): The state to wait for (default: "visible").
+        timeout (int): Timeout in milliseconds.
+
+    Raises:
+        ElementNotFoundException: If the element is not found within the timeout.
+
+    Returns:
+        The result of the original wait_for method if successful.
+    """
+    try:
+        return await _original_wait_for(self, state=state, timeout=timeout)
+    except PlaywrightTimeoutError:
+        selector = get_selector(self)
+        raise ElementNotFoundException(
+            f"Element '{selector}' not found after waiting for state '{state}'"
+        )
+
+Locator.wait_for = patched_wait_for
+
+# ------------------------------------------------------------------------------
+# Function: patched_click
+# ------------------------------------------------------------------------------
+
+_original_click = Locator.click
+
+async def patched_click(self, *args, timeout=None, **kwargs):
+    """
+    Monkey-patched version of Locator.click that raises ElementNotFoundException
+    instead of Playwright's TimeoutError when the element is not clickable within timeout.
+
+    Args:
+        *args: Positional arguments for click.
+        timeout (int): Timeout in milliseconds.
+        **kwargs: Keyword arguments for click.
+
+    Raises:
+        ElementNotFoundException: If the element is not clickable within the timeout.
+
+    Returns:
+        The result of the original click method if successful.
+    """
+    try:
+        return await _original_click(self, *args, timeout=timeout, **kwargs)
+    except PlaywrightTimeoutError:
+        selector = get_selector(self)
+        raise ElementNotFoundException(
+            f"Element '{selector}' not found (click timeout after {timeout}ms)"
+        )
+
+Locator.click = patched_click
+
+# ------------------------------------------------------------------------------
+# Function: patched_fill
+# ------------------------------------------------------------------------------
+
+_original_fill = Locator.fill
+
+async def patched_fill(self, *args, timeout=None, **kwargs):
+    """
+    Monkey-patched version of Locator.fill that raises ElementNotFoundException
+    instead of Playwright's TimeoutError when the element is not fillable within timeout.
+
+    Args:
+        *args: Positional arguments for fill.
+        timeout (int): Timeout in milliseconds.
+        **kwargs: Keyword arguments for fill.
+
+    Raises:
+        ElementNotFoundException: If the element is not fillable within the timeout.
+
+    Returns:
+        The result of the original fill method if successful.
+    """
+    try:
+        return await _original_fill(self, *args, timeout=timeout, **kwargs)
+    except PlaywrightTimeoutError:
+        selector = get_selector(self)
+        raise ElementNotFoundException(
+            f"Element '{selector}' not found (fill timeout after {timeout}ms)"
+        )
+
+Locator.fill = patched_fill
+
+# ------------------------------------------------------------------------------
+# Fixture: page
+# ------------------------------------------------------------------------------
+
+@pytest_asyncio.fixture
+async def page():
+    """
+    Async pytest fixture that launches a Playwright browser page based on environment
+    variables or settings configuration. Supports Chromium, Firefox, and WebKit.
+    Uses BrowserStack if BROWSERSTACK=true in environment.
+
+    Yields:
+        Page: An instance of Playwright's Page object for test use.
+
+    Raises:
+        ValueError: If an unsupported browser name is specified.
+    """
+    if is_browserstack_enabled():
+        caps = {
+            "browser": "chrome",
+            "browser_version": "latest",
+            "os": "osx",
+            "os_version": "sonoma",
+            "name": "Playwright Test",
+            "build": "playwright-python-build-1",
+            "browserstack.username": os.getenv("BROWSERSTACK_USERNAME"),
+            "browserstack.accessKey": os.getenv("BROWSERSTACK_ACCESS_KEY"),
+        }
+        ws_endpoint = (
+            f"wss://cdp.browserstack.com/playwright?caps={json.dumps(caps)}"
+        )
+        async with async_playwright() as p:
+            browser = await p.chromium.connect(ws_endpoint)
+            context = await browser.new_context()
+            page = await context.new_page()
+            print("\n Using BrowserStack cloud browser")
+            yield page
+            await browser.close()
+    else:
+        # ...existing local browser logic...
+        async with async_playwright() as p:
+            browser_name = os.getenv("BROWSER", settings.BROWSER).lower()
+            headless = os.getenv("HEADLESS", str(settings.HEADLESS)).lower() == "true"
+            browser_options = settings.get_browser_options()
+            browser_options["headless"] = headless
+            if browser_name == "chromium":
+                browser = await p.chromium.launch(**browser_options)
+            elif browser_name == "firefox":
+                browser = await p.firefox.launch(**browser_options)
+            elif browser_name == "webkit":
+                browser = await p.webkit.launch(**browser_options)
+            else:
+                raise ValueError(f"Unsupported BROWSER value: {browser_name}")
+            context = await browser.new_context()
+            page = await context.new_page()
+            print(f"\n Using {browser_name} browser (headless={headless})")
+            yield page
+            await browser.close()
+
+# ------------------------------------------------------------------------------
+# Hook: pytest_runtest_makereport
+# ------------------------------------------------------------------------------
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """
+    Hook that runs after each test phase (setup, call, teardown).
+    Automatically captures context for AI healing on ANY test failure.
+    Triggers AI healing only on final failure (after all retries).
+    Thread-safe for parallel test runs.
+
+    NO DECORATORS NEEDED - this applies to ALL tests automatically!
+    """
+    outcome = yield
+    rep = outcome.get_result()
+
+    # Skip all AI healing logic if disabled
+    if not ollama_service.enabled:
+        return
+
+    debug_print(f"DEBUG: rep.when={rep.when}, rep.failed={rep.failed}, item={item.nodeid}")
+
+    setattr(item, "rep_" + rep.when, rep)
+
+    if rep.when == "call" and rep.failed:
+        test_key = item.nodeid
+        max_reruns = item.config.getoption("reruns") or 0
+
+        # Increment fail count in a thread-safe way
+        with _ai_healing_lock:
+            _ai_healing_fail_counts[test_key] += 1
+            fail_count = _ai_healing_fail_counts[test_key]
+
+        debug_print(f"DEBUG: {test_key} fail_count={fail_count} (max_reruns={max_reruns})")
+
+        # Capture context on EVERY failure (for screenshot, DOM, etc.)
+        page = find_page_object(item)
+        error_message = str(call.excinfo.value) if call.excinfo else "Unknown error"
+
+        # Use async capture_failure_context for full context (including DOM)
+        if page:
+            try:
+                context, screenshot_path = asyncio.get_event_loop().run_until_complete(
+                    ollama_service.capture_failure_context(
+                        page, error_message, item.name, getattr(item.function, "__func__", None)
+                    )
+                )
+            except Exception as e:
+                print(f"🧠 Error capturing failure context: {e}")
+                context = {
+                    "test_name": item.name,
+                    "error_message": error_message,
+                    "error_type": type(call.excinfo.value).__name__ if call.excinfo else "Unknown",
+                    "test_docstring": getattr(getattr(item.function, "__func__", None), "__doc__", ""),
+                    "capture_error": str(e),
+                    "dom": f"DOM not available due to error: {e}",
+                }
+        else:
+            context = {
+                "test_name": item.name,
+                "error_message": error_message,
+                "error_type": type(call.excinfo.value).__name__ if call.excinfo else "Unknown",
+                "test_docstring": getattr(getattr(item.function, "__func__", None), "__doc__", ""),
+                "capture_error": "No page object found",
+                "dom": "DOM not available: No page object found",
+            }
+
+        # Try to get the original test code
+        original_test_code = ""
+        try:
+            test_file = item.fspath
+            with open(test_file, 'r') as f:
+                original_test_code = f.read()
+        except Exception as e:
+            print(f"Warning: Could not read test file: {e}")
+
+        # Store context for later AI healing
+        if not hasattr(ollama_service, '_pending_contexts'):
+            ollama_service._pending_contexts = {}
+        ollama_service._pending_contexts[test_key] = {
+            "test_name": item.name,
+            "context": context,
+            "original_test_code": original_test_code,
+            "screenshot_path": screenshot_path,
+        }
+
+        # This duplicates code in screenshot_decorator, but only runs if AI healing is on
+        if screenshot_path and os.path.exists(screenshot_path):
+            with open(screenshot_path, "rb") as image_file:
+                allure.attach(
+                    image_file.read(),
+                    name=f"AI Healing Screenshot: {item.name}",
+                    attachment_type=allure.attachment_type.PNG
+        )
+
+        # Only trigger AI healing on the final failure
+        if fail_count > max_reruns:
+            print(f"\n🧠 Final failure detected for {item.name}, triggering AI healing")
+            if hasattr(ollama_service, '_pending_contexts'):
+                context_data = ollama_service._pending_contexts.get(test_key)
+                if not context_data:
+                    context_data = ollama_service._pending_contexts.get(item.name)
+                if context_data and ollama_service.enabled:
+                    if not ensure_ollama_ready():
+                        print("🧠 AI healing skipped - Ollama service or model unavailable")
+                        return
+                    try:
+                        ai_response = ollama_service.call_ollama_healing(
+                            context_data["context"],
+                            context_data["original_test_code"],
+                            context_data["screenshot_path"]
+                        )
+                        if ai_response:
+                            asyncio.run(ollama_service.generate_healing_report(
+                                context_data["test_name"],
+                                ai_response,
+                                context_data["context"]
+                            ))
+                        else:
+                            print(f"🧠 Ollama analysis failed for {item.name}")
+                        # Clean up
+                        if test_key in ollama_service._pending_contexts:
+                            del ollama_service._pending_contexts[test_key]
+                        if item.name in ollama_service._pending_contexts:
+                            del ollama_service._pending_contexts[item.name]
+                    except Exception as e:
+                        print(f"🧠 AI healing hook failed: {e}")
+                else:
+                    if not context_data:
+                        print(f"🧠 No context data found for {item.name}")
+                    if not ollama_service.enabled:
+                        print(f"🧠 AI healing disabled for {item.name}")
+            else:
+                print(f"🧠 No pending contexts found")
+            # Clean up fail count
+            with _ai_healing_lock:
+                if test_key in _ai_healing_fail_counts:
+                    del _ai_healing_fail_counts[test_key]
+        else:
+            print(f"🔄 Test {item.name} will be retried (attempt {fail_count}), skipping AI healing")
+</file>
+
+<file path="data/personas.py">
+"""
+===============================================================================
+User Personas Configuration
+===============================================================================
+
+This module defines user personas with their credentials and profile information
+for testing different user roles and scenarios in the Hudl application.
+All sensitive data is loaded from environment variables for security.
+
+Features:
+    ✓ Multiple user personas with different roles (PM, Admin, Coach).
+    ✓ Secure credential management through environment variables.
+    ✓ Consistent data structure across all personas.
+    ✓ Easy access to user information for test data scenarios.
+
+Usage Example:
+    from data.personas import PERSONAS
+    
+    @pytest.mark.asyncio
+    async def test_login_as_pm(app):
+        await app.login_page.enter_email(PERSONAS["pm"]["email"])
+        await app.login_page.enter_password(PERSONAS["pm"]["password"])
+        # Verify user info matches persona data
+        assert initials == PERSONAS["pm"]["initials"]
+
+Environment Variables Required:
+    - USER_PM_EMAIL, USER_PM_PASSWORD, USER_PM_ROLE, USER_PM_FIRST, USER_PM_LAST, USER_PM_INITIALS
+    - USER_ADMIN_EMAIL, USER_ADMIN_PASSWORD, USER_ADMIN_ROLE, USER_ADMIN_FIRST, USER_ADMIN_LAST, USER_ADMIN_INITIALS
+    - USER_COACH_EMAIL, USER_COACH_PASSWORD, USER_COACH_ROLE, USER_COACH_FIRST, USER_COACH_LAST, USER_COACH_INITIALS
+
+Conventions:
+    - All persona keys use lowercase identifiers for consistency.
+    - Each persona contains the same set of attributes for predictable access.
+    - Sensitive information is never hardcoded, always loaded from environment.
+    - Persona structure supports role-based testing scenarios.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+import os
+
+# ------------------------------------------------------------------------------
+# User Personas Dictionary
+# ------------------------------------------------------------------------------
+
+PERSONAS = {
+    "user": {
+        "email": os.getenv("USER_PM_EMAIL"),
+        "password": os.getenv("USER_PM_PASSWORD"),
+        "role": os.getenv("USER_PM_ROLE"),
+        "first_name": os.getenv("USER_PM_FIRST"),
+        "last_name": os.getenv("USER_PM_LAST"),
+        "initials": os.getenv("USER_PM_INITIALS"),
+    },
+    "admin": {
+        "email": os.getenv("USER_ADMIN_EMAIL"),
+        "password": os.getenv("USER_ADMIN_PASSWORD"),
+        "role": os.getenv("USER_ADMIN_ROLE"),
+        "first_name": os.getenv("USER_ADMIN_FIRST"),
+        "last_name": os.getenv("USER_ADMIN_LAST"),
+        "initials": os.getenv("USER_ADMIN_INITIALS"),
+    },
+    "coach": {
+        "email": os.getenv("USER_COACH_EMAIL"),
+        "password": os.getenv("USER_COACH_PASSWORD"),
+        "role": os.getenv("USER_COACH_ROLE"),
+        "first_name": os.getenv("USER_COACH_FIRST"),
+        "last_name": os.getenv("USER_COACH_LAST"),
+        "initials": os.getenv("USER_COACH_INITIALS"),
+    },
+}
+</file>
+
+<file path="data/test_data.py">
+
+"""
+Test data for negative testing scenarios including invalid credentials,
+malicious inputs, and edge cases for form validation.
+"""
+
+# =====================================
+# Invalid Passwords
+# =====================================
+INVALID_PASSWORDS = {
+    "empty": "",
+    "too_short": "123",
+    "no_uppercase": "password123!",
+    "no_lowercase": "PASSWORD123!",
+    "no_numbers": "Password!",
+    "no_special": "Password123",
+    "only_spaces": "   ",
+    "common_weak": [
+        "password",
+        "123456",
+        "qwerty",
+        "letmein",
+        "admin",
+        "welcome",
+        "monkey",
+        "dragon"
+    ],
+    "sequential": "123456789",
+    "keyboard_pattern": "qwertyuiop",
+    "repeated_chars": "aaaaaaa",
+    "too_long": "a" * 129,  # Assuming 128 char limit
+}
+
+# =====================================
+# Invalid Emails
+# =====================================
+INVALID_EMAILS = {
+    "empty": "",
+    "no_at_symbol": "invalidemail.com",
+    "multiple_at": "user@@domain.com",
+    "no_domain": "user@",
+    "no_username": "@domain.com",
+    "invalid_domain": "user@.com",
+    "spaces": "user name@domain.com",
+    "special_chars": "user<>@domain.com",
+    "no_tld": "user@domain",
+    "double_dot": "user@domain..com",
+    "starts_with_dot": ".user@domain.com",
+    "ends_with_dot": "user.@domain.com",
+    "too_long": "a" * 250 + "@domain.com",
+    "unicode": "用户@domain.com",
+    "sql_injection": "user'; DROP TABLE users;--@domain.com",
+}
+
+# =====================================
+# SQL Injection Payloads
+# =====================================
+SQL_INJECTION_PAYLOADS = {
+    "basic_or": "' OR '1'='1",
+    "comment_bypass": "admin'--",
+    "union_select": "' UNION SELECT * FROM users--",
+    "drop_table": "'; DROP TABLE users;--",
+    "boolean_blind": "' OR 1=1#",
+    "time_based": "'; WAITFOR DELAY '00:00:05'--",
+    "error_based": "' AND (SELECT COUNT(*) FROM information_schema.tables)>0--",
+    "stacked_queries": "'; INSERT INTO users VALUES('hacker','pass');--",
+}
+
+# =====================================
+# XSS Payloads
+# =====================================
+XSS_PAYLOADS = {
+    "basic_script": "<script>alert('xss')</script>",
+    "img_onerror": "<img src=x onerror=alert('xss')>",
+    "svg_onload": "<svg onload=alert('xss')>",
+    "javascript_protocol": "javascript:alert('xss')",
+    "event_handler": "<div onmouseover=alert('xss')>hover</div>",
+    "encoded": "%3Cscript%3Ealert('xss')%3C/script%3E",
+    "iframe": "<iframe src=javascript:alert('xss')></iframe>",
+    "body_onload": "<body onload=alert('xss')>",
+}
+
+# =====================================
+# Command Injection Payloads
+# =====================================
+COMMAND_INJECTION_PAYLOADS = {
+    "basic": "; ls",
+    "pipe": "| whoami",
+    "background": "& ping google.com",
+    "chained": "&& cat /etc/passwd",
+    "or_operator": "|| echo 'injected'",
+    "backticks": "`whoami`",
+    "dollar_paren": "$(whoami)",
+    "newline": "\nls -la",
+}
+
+# =====================================
+# Path Traversal Payloads
+# =====================================
+PATH_TRAVERSAL_PAYLOADS = {
+    "basic": "../../../etc/passwd",
+    "windows": "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+    "encoded": "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+    "double_encoded": "%252e%252e%252f",
+    "unicode": "..%c0%af..%c0%af..%c0%afetc%c0%afpasswd",
+    "null_byte": "../../../etc/passwd%00",
+}
+
+# =====================================
+# Invalid Names/Text Fields
+# =====================================
+INVALID_NAMES = {
+    "empty": "",
+    "only_spaces": "   ",
+    "numbers_only": "12345",
+    "special_chars": "!@#$%^&*()",
+    "too_long": "a" * 256,
+    "html_tags": "<script>alert('xss')</script>",
+    "sql_injection": "'; DROP TABLE users;--",
+    "unicode": "用户名",
+    "emoji": "👤🔥💯",
+    "newlines": "First\nName",
+    "tabs": "First\tName",
+}
+
+# =====================================
+# Boundary Values
+# =====================================
+BOUNDARY_VALUES = {
+    "max_int": 2147483647,
+    "min_int": -2147483648,
+    "zero": 0,
+    "negative": -1,
+    "float": 3.14159,
+    "very_large": 999999999999999999999,
+    "scientific": "1e10",
+}
+
+# =====================================
+# Common Attack Strings
+# =====================================
+ATTACK_STRINGS = [
+    # XSS
+    "<script>alert('xss')</script>",
+    "javascript:alert('xss')",
+    "<img src=x onerror=alert('xss')>",
+    
+    # SQL Injection
+    "' OR '1'='1",
+    "'; DROP TABLE users;--",
+    "' UNION SELECT * FROM users--",
+    
+    # Command Injection
+    "; ls -la",
+    "| whoami",
+    "&& cat /etc/passwd",
+    
+    # Path Traversal
+    "../../../etc/passwd",
+    "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+    
+    # LDAP Injection
+    "*)(uid=*",
+    "admin)(&(password=*))",
+    
+    # XML Injection
+    "<!DOCTYPE root [<!ENTITY test SYSTEM 'file:///etc/passwd'>]><root>&test;</root>",
+]
+
+# =====================================
+# Helper Functions
+# =====================================
+def get_random_invalid_email():
+    """Get a random invalid email for testing."""
+    import random
+    return random.choice(list(INVALID_EMAILS.values()))
+
+def get_random_sql_payload():
+    """Get a random SQL injection payload."""
+    import random
+    return random.choice(list(SQL_INJECTION_PAYLOADS.values()))
+
+def get_random_xss_payload():
+    """Get a random XSS payload."""
+    import random
+    return random.choice(list(XSS_PAYLOADS.values()))
+</file>
+
+<file path="example_ai_reports/test_login_brute_force_20250730_112151_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_brute_force`
+- **Timestamp**: `20250730_112151`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+assert False
+```
+
+## Ollama Analysis
+```
+The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.
+```
+
+## Root Cause
+```
+Potential issues with the login form's validation logic or how it handles user input.
+```
+
+## Suggested Fix
+```
+Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.
+```
+
+## Updated Code
+```
+```python
+    # ... (rest of your test code) 
+
+    @pytest.mark.asyncio
+    async def test_login_comprehensive_email_sql_injection(app):
+        # ... (your existing test code)
+
+        # Add more assertions to verify the form's behavior and error handling.
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        assert await app.login_page.has_email_invalid_error_icon()
+```
+```
+
+## Confidence Level
+**80.0%**
+
+## Recommendations
+```
+ - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. 
+- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. 
+- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.",
+    "root_cause": "Potential issues with the login form's validation logic or how it handles user input.",
+    "confidence": 0.8,
+    "suggested_fix": "Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.",
+    "updated_test_code": "```python\n    # ... (rest of your test code) \n\n    @pytest.mark.asyncio\n    async def test_login_comprehensive_email_sql_injection(app):\n        # ... (your existing test code)\n\n        # Add more assertions to verify the form's behavior and error handling.\n        assert await app.login_page.error_message_email_invalid.is_visible()\n        assert await app.login_page.has_email_invalid_error_icon()\n```",
+    "recommendations": " - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. \n- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. \n- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue."
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="example_ai_reports/test_login_brute_force_20250730_112151_ollama_healed.py">
+```python
+    # ... (rest of your test code) 
+
+    @pytest.mark.asyncio
+    async def test_login_comprehensive_email_sql_injection(app):
+        # ... (your existing test code)
+
+        # Add more assertions to verify the form's behavior and error handling.
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        assert await app.login_page.has_email_invalid_error_icon()
+```
+</file>
+
+<file path="example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_direct_valid_credentials`
+- **Timestamp**: `20250730_112614`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+'LoginPage' object has no attribute 'enter_passwordx'
+```
+
+## Ollama Analysis
+```
+The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.
+```
+
+## Root Cause
+```
+Typographical error in the test code (e.g., incorrect element name) or missing element definition
+```
+
+## Suggested Fix
+```
+Verify the element names used in the test code against the actual HTML structure of the LoginPage class.
+```
+
+## Updated Code
+```
+```python
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    # ... (rest of the test code)
+    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
+    # ... (rest of the test code)
+```
+```
+
+## Confidence Level
+**95.0%**
+
+## Recommendations
+```
+Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.",
+    "root_cause": "Typographical error in the test code (e.g., incorrect element name) or missing element definition",
+    "confidence": 0.95,
+    "suggested_fix": "Verify the element names used in the test code against the actual HTML structure of the LoginPage class.",
+    "updated_test_code": "```python\n@pytest.mark.login\n@pytest.mark.asyncio\nasync def test_login_direct_valid_credentials(app):\n    # ... (rest of the test code)\n    await app.login_page.enter_passwordx(PERSONAS['user']['password']) \n    # ... (rest of the test code)\n```",
+    "recommendations": "Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors." 
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_healed.py">
+```python
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    # ... (rest of the test code)
+    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
+    # ... (rest of the test code)
+```
+</file>
+
+<file path="example_ai_reports/test_login_invalid_email_20250730_112142_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_invalid_email`
+- **Timestamp**: `20250730_112142`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+assert False
+```
+
+## Ollama Analysis
+```
+The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.
+```
+
+## Root Cause
+```
+Incorrect email format
+```
+
+## Suggested Fix
+```
+Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.
+```
+
+## Updated Code
+```
+```python
+async def test_login_invalid_email(app):
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email('dadfdf@gmail.com')
+    await app.login_page.click_continue()
+    # Assert error message for incorrect email is visible
+    assert await app.login_page.error_message_email_incorrect.is_visible()
+    # ... rest of the test code 
+```
+```
+
+## Confidence Level
+**95.0%**
+
+## Recommendations
+```
+Ensure that the email validation logic in your application is robust and handles various input formats correctly.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.",
+    "root_cause": "Incorrect email format",
+    "confidence": 0.95,
+    "suggested_fix": "Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.",
+    "updated_test_code": "```python\nasync def test_login_invalid_email(app):\n    await app.login_page.load_login_direct()\n    await app.login_page.enter_email('dadfdf@gmail.com')\n    await app.login_page.click_continue()\n    # Assert error message for incorrect email is visible\n    assert await app.login_page.error_message_email_incorrect.is_visible()\n    # ... rest of the test code \n```",
+    "recommendations": "Ensure that the email validation logic in your application is robust and handles various input formats correctly." 
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="example_ai_reports/test_login_invalid_email_20250730_112142_ollama_healed.py">
+```python
+async def test_login_invalid_email(app):
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email('dadfdf@gmail.com')
+    await app.login_page.click_continue()
+    # Assert error message for incorrect email is visible
+    assert await app.login_page.error_message_email_incorrect.is_visible()
+    # ... rest of the test code 
+```
+</file>
+
+<file path="pages/__init__.py">
+
+</file>
+
+<file path="pages/app.py">
+"""
+===============================================================================
+App Class
+===============================================================================
+
+This module defines the App class, which serves as a central aggregator for all
+page objects in the Hudl application test suite. It provides a single entry point
+for accessing all page objects, eliminating the need to pass multiple page fixtures
+to test functions.
+
+Features:
+    ✓ Centralized access to all page objects through a single class.
+    ✓ Eliminates the need for multiple page fixtures in test functions.
+    ✓ Clean and organized approach to managing page objects.
+    ✓ Easy to extend with new page objects as the test suite grows.
+    ✓ Maintains separation of concerns while providing convenience.
+
+Usage Example:
+    from pages.app import App
+
+    @pytest.mark.asyncio
+    async def test_login_flow(app):
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email("user@example.com")
+        await app.login_page.click_continue()
+        
+        # Access dashboard page through same app instance
+        initials, name, email = await app.dashboard_page.get_user_profile_info()
+        assert name == "Expected Name"
+
+Conventions:
+    - All page objects are instantiated in __init__ for immediate availability.
+    - Page objects are stored as instance attributes for easy access.
+    - No async operations are performed in __init__ to avoid fixture issues.
+    - New page objects should be added as attributes following the same pattern.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+from pages.login_page import LoginPage
+from pages.dashboard_page import DashboardPage
+from pages.profile_page import ProfilePage
+from pages.privacy_page import PrivacyPolicyPage
+from pages.terms_page import TermsPage
+
+class App:
+    def __init__(self, page):
+        self.page = page
+        self.login_page = LoginPage(page)
+        self.dashboard_page = DashboardPage(page)
+        self.profile_page = ProfilePage(page)
+        self.privacy_page = PrivacyPolicyPage(page)
+        self.terms_page = TermsPage(page)
+
+</file>
+
+<file path="pages/base_page.py">
+"""
+===============================================================================
+BasePage Class
+===============================================================================
+
+This module defines the BasePage class, which serves as the foundation for all
+page objects in the Hudl application test suite. It provides common functionality
+and utilities that are shared across all page objects, promoting code reuse and
+maintaining consistency.
+
+Features:
+    ✓ Common navigation and page interaction methods.
+    ✓ Shared utility functions for element waiting and verification.
+    ✓ Consistent error handling and logging across all page objects.
+    ✓ Base functionality for URL management and page state verification.
+    ✓ Foundation for implementing page object inheritance patterns.
+
+Usage Example:
+    from pages.base_page import BasePage
+
+    class LoginPage(BasePage):
+        def __init__(self, page):
+            super().__init__(page)
+            self.url = "https://www.hudl.com/login"
+
+        async def load(self):
+            await self.navigate_to(self.url)
+
+Conventions:
+    - All page objects should inherit from BasePage for consistency.
+    - Common functionality is implemented here to avoid code duplication.
+    - Page-specific logic should be implemented in individual page classes.
+    - All methods are async to maintain Playwright compatibility.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+from playwright.async_api import Page
+
+class BasePage:
+    def __init__(self, page: Page):
+        self.page = page
+
+    async def goto(self, url: str):
+        await self.page.goto(url)
+
+    async def get_title(self) -> str:
+        return await self.page.title()
+
+</file>
+
+<file path="pages/dashboard_page.py">
+"""
+===============================================================================
+DashboardPage Object
+===============================================================================
+
+This module defines the DashboardPage class, which provides locators and helper
+methods for interacting with and verifying user profile and menu elements
+on the application's dashboard page using Playwright.
+
+Features:
+    ✓ Locators for user initials, display name, email, and user menu items.
+    ✓ Methods to retrieve user information and interact with the user menu.
+    ✓ Usage of @property for clean locator access.
+    ✓ Async methods for Playwright compatibility.
+
+Usage Example:
+    from pages.dashboard_page import DashboardPage
+
+    @pytest.mark.asyncio
+    async def test_dashboard_user_info(page):
+        dashboard_page = DashboardPage(page)
+        await dashboard_page.click_user_avatar()
+        initials = await dashboard_page.get_user_initials_text()
+        name = await dashboard_page.get_user_name_text()
+        email = await dashboard_page.get_user_email_text()
+        assert initials == "PM"
+        assert name == "Phil M"
+        assert email == "pmcneely@gmail.com"
+
+Conventions:
+    - All locators are defined as @property methods for clarity and reusability.
+    - All Playwright actions and queries are implemented as async methods.
+    - Page object is designed for maintainability and ease of use in tests.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+from data.personas import PERSONAS
+
+class DashboardPage:
+    def __init__(self, page):
+        self.page = page
+
+    # =====================================
+    # User Profile Elements
+    # =====================================
+    @property
+    def user_initials(self):
+        """Locator for the user initials in the avatar."""
+        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user")
+
+    @property
+    def user_name(self):
+        """Locator for the user display name."""
+        return self.page.locator("div.hui-globaluseritem__display-name > span")
+
+    @property
+    def user_email(self):
+        """Locator for the user email address."""
+        return self.page.locator("div.hui-globaluseritem__email")
+
+    @property
+    def user_menu(self):
+        """Locator for the global user menu container."""
+        return self.page.locator("div.hui-globalusermenu")
+
+    @property
+    def user_avatar(self):
+        """Locator for the user avatar container."""
+        return self.page.locator("div.hui-globaluseritem__avatar")
+
+    # =====================================
+    # User Menu Items
+    # =====================================
+    @property
+    def your_profile_link(self):
+        """Locator for the 'Your Profile' menu item."""
+        return self.page.locator('[data-qa-id="webnav-usermenu-yourprofile"]')
+
+    @property
+    def account_settings_link(self):
+        """Locator for the 'Account Settings' menu item."""
+        return self.page.locator('[data-qa-id="webnav-usermenu-accountsettings"]')
+
+    @property
+    def livestream_purchases_link(self):
+        """Locator for the 'Livestream Purchases' menu item."""
+        return self.page.locator('[data-qa-id="webnav-usermenu-livestreampurchases"]')
+
+    @property
+    def tickets_passes_link(self):
+        """Locator for the 'Tickets & Passes' menu item."""
+        return self.page.locator('[data-qa-id="webnav-usermenu-ticketsandpasses"]')
+
+    @property
+    def get_help_link(self):
+        """Locator for the 'Get Help' menu item."""
+        return self.page.locator('[data-qa-id="webnav-usermenu-help"]')
+
+    @property
+    def logout_link(self):
+        """Locator for the 'Log Out' menu item."""
+        return self.page.get_by_role("link", name="Log Out")
+    
+
+    # =====================================
+    # Helper Methods
+    # =====================================
+    async def get_user_initials_text(self):
+        """Get the text content of the user initials."""
+        return await self.user_initials.text_content()
+
+    async def get_user_name_text(self):
+        """Get the text content of the user display name."""
+        return await self.user_name.text_content()
+
+    async def get_user_email_text(self):
+        """Get the text content of the user email."""
+        return await self.user_email.text_content()
+
+    async def click_user_avatar(self):
+        """Click on the user avatar to open the user menu."""
+        await self.user_avatar.click()
+
+    async def click_logout(self):
+        """Perform logout by clicking the logout link."""
+        await self.logout_link.click()
+
+    async def get_user_profile_info(self):
+        """Return avatar (initials, name, email) as a tuple."""
+        #await self.click_user_avatar()
+        initials = await self.get_user_initials_text()
+        name = await self.get_user_name_text()
+        email = await self.get_user_email_text()
+        return initials, name, email
+
+    async def verify_user_profile_info(self):
+        """Retrieve and validate user profile information"""
+        initials, name, email = await self.get_user_profile_info()
+        assert initials == f"{PERSONAS['user']['first_name'][0]}{PERSONAS['user']['last_name'][0]}"
+        assert name == f"{PERSONAS['user']['first_name']} {PERSONAS['user']['last_name'][0]}"
+        assert email == PERSONAS["user"]["email"]
+</file>
+
+<file path="pages/login_page.py">
+"""
+===============================================================================
+LoginPage Object
+===============================================================================
+
+This module defines the LoginPage class, which provides locators and helper
+methods for interacting with and verifying login error messages and icons
+on the application's login page using Playwright.
+
+Features:
+    ✓ Locators for error message containers and error icons (including those
+      rendered as real DOM elements and those shown via CSS pseudo-elements).
+    ✓ Methods to retrieve error message text and check for the presence of
+      error icons.
+    ✓ Usage of @property for clean locator access.
+    ✓ Async methods for Playwright compatibility.
+
+Usage Example:
+    from pages.login_page import LoginPage
+
+    @pytest.mark.asyncio
+    async def test_password_error_icon_appears(page):
+        login_page = LoginPage(page)
+        await login_page.load_login_direct()
+        await login_page.enter_email("test@example.com")
+        await login_page.click_continue()
+        await login_page.enter_password("wrongpassword")
+        await login_page.click_continue()
+
+        # Wait for error icon to appear
+        assert await login_page.wait_for_password_error_icon()
+
+        # Verify error icon is visible
+        assert await login_page.is_password_error_icon_visible()
+
+        # Verify error message text
+        error_text = await login_page.get_password_error_text()
+        assert "Incorrect username or password." in error_text
+
+Conventions:
+    - All locators are defined as @property methods for clarity and reusability.
+    - All Playwright actions and queries are implemented as async methods.
+    - Error icons rendered via CSS pseudo-elements are verified by checking
+      the parent element's class and visibility, since pseudo-elements are
+      not directly accessible via Playwright.
+
+Author: PMAC
+Date: [2025-07-26]
+===============================================================================
+"""
+from .base_page import BasePage
+
+class LoginPage(BasePage):
+
+    def __init__(self, page: BasePage):
+        self.page = page
+
+    async def load(self, url: str):
+        await self.page.goto(url)
+
+    # =====================================
+    # Navigation to Login
+    # =====================================
+    async def load_home(self):
+        await self.page.goto("https://www.hudl.com/")
+
+    async def load_login_direct_with_params(self):
+        await self.page.goto("https://www.hudl.com/login?utm_content=hudl_primary&utm_source=www.hudl.com&utm_medium=login_dropdown&utm_campaign=platform_logins")
+
+    async def load_login_direct(self):
+        await self.page.goto("https://www.hudl.com/login")
+
+    async def click_login_link(self):
+        await self.page.get_by_role("link", name="Log in").click()
+
+    async def click_second_hudl_link(self):
+        await self.page.get_by_role("link", name="Hudl", exact=True).nth(1).click()
+
+    # =====================================
+    # Email Field
+    # =====================================
+    @property 
+    def email_textbox(self):
+        return self.page.get_by_role("textbox", name="Email")
+
+    async def enter_email(self, email: str):
+        await self.email_textbox.fill(email)
+
+    async def get_email_text(self):
+        """Get the current text value from the email input field."""
+        return await self.email_textbox.input_value()
+    
+    # =====================================
+    # Password Field
+    # =====================================
+    @property
+    def password_textbox(self):
+        """Locator for the password input textbox."""
+        return self.page.get_by_role("textbox", name="Password")
+
+    async def enter_password(self, password: str):
+        """
+        Enter password into the password textbox.
+
+        Args:
+            password (str): The password to enter.
+        """
+        await self.password_textbox.fill(password)
+
+    async def get_password_text(self):
+        """Get the current text value from the password input field."""
+        return await self.password_textbox.input_value()
+    
+    # =====================================
+    # Convenience Methods
+    # =====================================
+    async def fill_email_and_password_without_submit(self, email: str, password: str):
+        """Fill both the email and password fields in one step but do not submit."""
+        await self.enter_email(email)
+        await self.click_continue()  # Navigate to password field
+        await self.enter_password(password)
+
+    async def fill_email_and_password_submit(self, email: str, password: str):
+        """Fill both the email and password fields in one step and submit."""
+        await self.enter_email(email)
+        await self.click_continue()  # Navigate to password field
+        await self.enter_password(password)
+        await self.click_continue() 
+
+    # =====================================
+    # Page Navigation
+    # =====================================
+    async def click_continue(self):
+        await self.page.get_by_role("button", name="Continue", exact=True).click()
+
+    # =====================================
+    # Forgot Password
+    # =====================================
+    @property
+    def reset_password_link(self):
+        return self.page.get_by_role("link", name="Forgot Password")
+    
+    @property
+    def go_back_reset_link(self):
+        return self.page.get_by_role("button", name="Go Back")
+    
+    @property
+    def reset_password_heading(self):
+        return self.page.get_by_role("heading", name="Reset Password")
+    
+    @property
+    def reset_password_heading(self):
+        return self.page.get_by_text("We'll send you a link to reset your password.")
+
+    # =====================================
+    # Email or password incorrect
+    # =====================================
+    #This is reused for tests that check invalid email as well
+    @property
+    def error_message_email_or_password_incorrect(self):
+        return self.page.locator("#error-element-password")
+    
+    @property
+    def error_message_password_incorrect_text(self):
+        return "Your email or password is incorrect. Try again."
+    
+    @property
+    def error_message_email_incorrect_text(self):
+        return "Incorrect username or password."
+    
+    async def get_error_message_email_incorrect_text(self):
+        if await self.error_message_email_or_password_incorrect.is_visible():
+            text = await self.error_message_email_or_password_incorrect.text_content()
+            return text.strip() if text else ""
+        return ""
+    
+    async def get_error_message_password_incorrect_text(self):
+        if await self.error_message_email_or_password_incorrect.is_visible():
+            text = await self.error_message_email_or_password_incorrect.text_content()
+            return text.strip() if text else ""
+        return ""
+    
+    async def has_email_or_password_incorrect_error_icon(self, timeout: int = 10000) -> bool:
+        if await self.error_message_email_or_password_incorrect.is_visible():
+            error_icon = self.error_message_email_or_password_incorrect.locator('.ulp-input-error-icon')
+            await error_icon.wait_for(state="visible", timeout=timeout)
+            return True
+        else:
+            return False
+    
+    # =====================================
+    # Password missing
+    # =====================================
+    @property
+    def error_message_password_required(self):
+        return self.page.locator("#error-cs-password-required")
+    
+    @property
+    def error_message_password_required_text(self):
+        return "Enter your password."
+    
+    async def get_error_message_password_required_text(self):
+        if await self.error_message_password_required.is_visible():
+            text = await self.error_message_password_required.text_content()
+            return text.strip() if text else ""
+        return ""
+    
+    async def has_password_required_error_icon(self):
+        """
+        Locator for the password error icon within the password error message container.
+
+        Returns:
+            Locator: Playwright locator for the error icon element.
+        """
+        # Check if the class is present (which triggers the icon via CSS)
+        classes = await self.error_message_password_required.get_attribute("class")
+        return "ulp-error-info" in classes
+
+    # =====================================
+    # Email missing
+    # =====================================
+    @property
+    def error_message_email_required(self):
+        return self.page.locator("#error-cs-email-required")
+    
+    @property
+    def error_message_email_required_text(self):
+        return "Enter an email address" # Interesting no period here like all others?
+    
+    async def get_error_message_email_required_text(self):
+        if await self.error_message_email_required.is_visible():
+            text = await self.error_message_email_required.text_content()
+            return text.strip() if text else ""
+        return ""
+    
+    async def has_email_required_error_icon(self):
+        # Check if the class is present (which triggers the icon via CSS)
+        classes = await self.error_message_email_required.get_attribute("class")
+        return "ulp-error-info" in classes
+    
+    # =====================================
+    # Edit email
+    # =====================================
+    @property
+    def edit_email_link(self):
+        """Locator for the 'Edit' email address link."""
+        return self.page.locator('a[data-link-name="edit-username"]')
+    
+    # =====================================
+    # Email invalid
+    # =====================================
+    @property
+    def error_message_email_invalid(self):
+        return self.page.locator("#error-cs-email-invalid")
+    
+    @property
+    def error_message_email_invalid_text(self):
+        return "Enter a valid email."
+    
+    async def get_error_message_email_invalid_text(self):
+        if await self.error_message_email_invalid.is_visible():
+            text = await self.error_message_email_invalid.text_content()
+            return text.strip() if text else ""
+        return ""
+    
+    async def has_email_invalid_error_icon(self):
+        # Check if the class is present (which triggers the icon via CSS)
+        classes = await self.error_message_email_required.get_attribute("class")
+        return "ulp-error-info" in classes
+    
+    # =====================================
+    # Blocked Account related
+    # =====================================
+    @property
+    def blocked_account_alert(self):
+        return self.page.locator('#prompt-alert[data-error-code="user-blocked"]')
+    
+    @property
+    def blocked_account_alert_text(self):
+        return "You’ve tried to log in too many times, so we’ve temporarily blocked your account. To get help, contact support"
+
+    @property
+    def blocked_account_message(self):
+        return self.blocked_account_alert.locator('p')  #in case I want to use it for something
+
+    async def get_blocked_account_text(self):
+        if await self.blocked_account_alert.is_visible():
+            text = await self.blocked_account_message.text_content()
+            return text.strip() if text else ""
+        return ""
+
+    async def is_account_blocked(self):
+        return await self.blocked_account_alert.is_visible()
+    
+    # =====================================
+    # Mask/Unmask Password
+    # =====================================
+    @property
+    def show_password_button(self):
+        return self.page.get_by_role("switch", name="Show password")
+    
+    # =====================================
+    # Create Account
+    # =====================================
+
+    async def click_create_account(self):
+        await self.page.get_by_role("link", name="Create Account").click()
+        
+    @property
+    def first_name_textbox(self):
+        """Locator for the first name input textbox."""
+        return self.page.locator('input#first-name')
+    
+    async def enter_first_name(self, first_name: str):
+        await self.first_name_textbox.fill(first_name)
+
+    async def get_first_name_text(self):
+        """Get the current text value from the first_name input field."""
+        return await self.first_name_textbox.input_value()
+
+    @property
+    def last_name_textbox(self):
+        """Locator for the last name input textbox."""
+        return self.page.locator('input#last-name')
+    
+    async def enter_last_name(self, last_name: str):
+        await self.last_name_textbox.fill(last_name)
+
+    async def get_last_name_text(self):
+        """Get the current text value from the last_name input field."""
+        return await self.last_name_textbox.input_value()
+    
+    #email box is same
+
+    @property
+    def login_link(self):
+        """Locator for the 'Log In' link."""
+        return self.page.get_by_role("link", name="Log In")
+    
+    # add error conditions as well.  Probably should make a new page for create account if want to improve
+
+    # =====================================
+    # Privacy Policy
+    # =====================================
+    @property
+    def privacy_policy_link(self):
+        """Locator for the 'Privacy Policy' link."""
+        return self.page.get_by_role("link", name="Privacy Policy")
+    
+    async def click_privacy_policy_link(self):
+        await self.privacy_policy_link.click()
+
+    # =====================================
+    # Terms of Service
+    # =====================================
+    @property
+    def terms_link(self):
+        """Locator for the 'Terms of Service' link."""
+        return self.page.get_by_role("link", name="Terms of Service")
+    
+    async def click_terms_link(self):
+        await self.terms_link.click()
+
+</file>
+
+<file path="pages/privacy_page.py">
+"""
+===============================================================================
+PrivacyPolicyPage Object
+===============================================================================
+
+This module defines the PrivacyPolicyPage class, which provides locators and helper
+methods for interacting with and verifying elements on the Hudl Privacy Policy page
+using Playwright.
+
+Features:
+    ✓ Locators for privacy policy page headings and content elements.
+    ✓ Methods to verify page content and navigation.
+    ✓ Usage of @property for clean locator access.
+    ✓ Async methods for Playwright compatibility.
+    ✓ Handles new tab/window navigation from login page links.
+
+Usage Example:
+    from pages.privacy_policy_page import PrivacyPolicyPage
+
+    @pytest.mark.asyncio
+    async def test_privacy_policy_page_loads(page):
+        login_page = LoginPage(page)
+        await login_page.load_login_direct()
+        
+        # Click privacy policy link (opens in new tab)
+        async with page.context.expect_page() as new_page_info:
+            await login_page.privacy_policy_link.click()
+        new_page = await new_page_info.value
+        
+        # Verify privacy policy page content
+        privacy_page = PrivacyPolicyPage(new_page)
+        await privacy_page.privacy_policy_heading.wait_for(state="visible")
+        assert await privacy_page.privacy_policy_heading.is_visible()
+
+Conventions:
+    - All locators are defined as @property methods for clarity and reusability.
+    - All Playwright actions and queries are implemented as async methods.
+    - Page is designed to handle new tab/window contexts from external navigation.
+    - Focuses on content verification and accessibility-based locators.
+
+Author: PMAC
+Date: [2025-07-26]
+===============================================================================
+"""
+
+class PrivacyPolicyPage:
+    def __init__(self, page):
+        self.page = page
+
+    @property
+    def privacy_policy_heading(self):
+        """Locator for the 'Hudl Privacy Policy' heading."""
+        return self.page.get_by_role("heading", name="Hudl Privacy Policy")
+</file>
+
+<file path="pages/profile_page.py">
+"""
+===============================================================================
+ProfilePage Object
+===============================================================================
+
+This module defines the ProfilePage class, which provides locators and helper
+methods for interacting with and verifying elements on the Hudl user profile page
+using Playwright.
+
+Features:
+    ✓ Locators for profile form fields, buttons, and user information elements.
+    ✓ Methods to update user profile information and preferences.
+    ✓ Usage of @property for clean locator access.
+    ✓ Async methods for Playwright compatibility.
+    ✓ Helper methods for form interactions and data retrieval.
+
+Usage Example:
+    from pages.profile_page import ProfilePage
+
+    @pytest.mark.asyncio
+    async def test_update_profile_info(page):
+        profile_page = ProfilePage(page)
+        
+        # Update user information
+        await profile_page.update_first_name("John")
+        await profile_page.update_last_name("Doe")
+        await profile_page.save_changes()
+        
+        # Verify changes were saved
+        assert await profile_page.get_first_name_value() == "John"
+        assert await profile_page.get_last_name_value() == "Doe"
+
+Conventions:
+    - All locators are defined as @property methods for clarity and reusability.
+    - All Playwright actions and queries are implemented as async methods.
+    - Form field interactions include clear() before fill() for reliability.
+    - Focuses on user profile management and account preferences.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+class ProfilePage:
+    def __init__(self, page):
+        self.page = page
+
+    # =====================================
+    # Page Header
+    # =====================================
+    @property
+    def personal_info_heading(self):
+        """Locator for the 'Personal Info' heading."""
+        return self.page.get_by_role("heading", name="Personal Info")
+
+    @property
+    def privacy_policy_link(self):
+        """Locator for the Privacy Policy link."""
+        return self.page.get_by_role("link", name="Privacy Policy")
+
+    # =====================================
+    # Profile Avatar Section
+    # =====================================
+    @property
+    def profile_initials(self):
+        """Locator for the profile initials in the avatar."""
+        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user")
+
+    @property
+    def edit_profile_picture_button(self):
+        """Locator for the 'Edit Profile Picture' button."""
+        return self.page.locator("#editProfileImage")
+
+    # =====================================
+    # Personal Information Form Fields
+    # =====================================
+    @property
+    def first_name_input(self):
+        """Locator for the first name input field."""
+        return self.page.locator("#first_name")
+
+    @property
+    def last_name_input(self):
+        """Locator for the last name input field."""
+        return self.page.locator("#last_name")
+
+    @property
+    def email_input(self):
+        """Locator for the email input field."""
+        return self.page.locator("#email")
+
+    @property
+    def cell_phone_input(self):
+        """Locator for the cell phone input field."""
+        return self.page.locator("#cell")
+
+    @property
+    def cell_carrier_select(self):
+        """Locator for the cell carrier dropdown."""
+        return self.page.locator("#carrier")
+
+    # =====================================
+    # Account Preferences
+    # =====================================
+    @property
+    def language_select(self):
+        """Locator for the language dropdown."""
+        return self.page.locator("#language")
+
+    @property
+    def timezone_select(self):
+        """Locator for the timezone dropdown."""
+        return self.page.locator("#timeZoneId")
+
+    # =====================================
+    # Password Section
+    # =====================================
+    @property
+    def reset_password_heading(self):
+        """Locator for the 'Reset Password' heading."""
+        return self.page.get_by_role("heading", name="Reset Password")
+
+    @property
+    def reset_password_button(self):
+        """Locator for the 'Reset Password' button."""
+        return self.page.locator("#resetPassword")
+
+    # =====================================
+    # Form Actions
+    # =====================================
+    @property
+    def cancel_button(self):
+        """Locator for the 'Cancel' button."""
+        return self.page.get_by_role("link", name="Cancel")
+
+    @property
+    def save_changes_button(self):
+        """Locator for the 'Save Changes' button."""
+        return self.page.locator("#save_basic")
+
+    # =====================================
+    # Toast Messages
+    # =====================================
+    @property
+    def error_toast(self):
+        """Locator for the error toast message."""
+        return self.page.locator("#ErrorToast")
+
+    @property
+    def success_toast(self):
+        """Locator for the success toast message."""
+        return self.page.locator("#SuccessToast")
+
+    # =====================================
+    # Helper Methods
+    # =====================================
+    async def get_first_name_value(self):
+        """Get the current value of the first name field."""
+        return await self.first_name_input.input_value()
+
+    async def get_last_name_value(self):
+        """Get the current value of the last name field."""
+        return await self.last_name_input.input_value()
+
+    async def get_email_value(self):
+        """Get the current value of the email field."""
+        return await self.email_input.input_value()
+
+    async def get_profile_initials_text(self):
+        """Get the text content of the profile initials."""
+        return await self.profile_initials.text_content()
+
+    async def update_first_name(self, first_name: str):
+        """Update the first name field."""
+        await self.first_name_input.clear()
+        await self.first_name_input.fill(first_name)
+
+    async def update_last_name(self, last_name: str):
+        """Update the last name field."""
+        await self.last_name_input.clear()
+        await self.last_name_input.fill(last_name)
+
+    async def update_email(self, email: str):
+        """Update the email field."""
+        await self.email_input.clear()
+        await self.email_input.fill(email)
+
+    async def save_changes(self):
+        """Click the Save Changes button."""
+        await self.save_changes_button.click()
+
+    async def reset_password(self):
+        """Click the Reset Password button."""
+        await self.reset_password_button.click()
+</file>
+
+<file path="pages/terms_page.py">
+
+"""
+===============================================================================
+TermsPage Object
+===============================================================================
+
+This module defines the TermsPage class, which provides locators and helper
+methods for interacting with and verifying elements on the Hudl Site Terms page
+using Playwright.
+
+Features:
+    ✓ Locators for site terms page headings and content elements.
+    ✓ Methods to verify page content and navigation.
+    ✓ Usage of @property for clean locator access.
+    ✓ Async methods for Playwright compatibility.
+    ✓ Handles new tab/window navigation from login page links.
+
+Usage Example:
+    from pages.terms_page import TermsPage
+
+    @pytest.mark.asyncio
+    async def test_terms_page_loads(page):
+        login_page = LoginPage(page)
+        await login_page.load_login_direct()
+        
+        # Click terms link (opens in new tab)
+        async with page.context.expect_page() as new_page_info:
+            await login_page.terms_link.click()
+        new_page = await new_page_info.value
+        
+        # Verify terms page content
+        terms_page = TermsPage(new_page)
+        await terms_page.site_terms_heading.wait_for(state="visible")
+        assert await terms_page.site_terms_heading.is_visible()
+
+Conventions:
+    - All locators are defined as @property methods for clarity and reusability.
+    - All Playwright actions and queries are implemented as async methods.
+    - Page is designed to handle new tab/window contexts from external navigation.
+    - Focuses on content verification and accessibility-based locators.
+
+Author: PMAC
+Date: [2025-07-26]
+===============================================================================
+"""
+class TermsPage:
+    def __init__(self, page):
+        self.page = page
+
+    @property
+    def site_terms_heading(self):
+        """Locator for the 'Hudl Site Terms' heading."""
+        return self.page.get_by_role("heading", name="Hudl Site Terms")
+    
+</file>
+
+<file path="pytest.ini">
+[pytest]
+asyncio_mode = auto
+addopts = 
+    --strict-markers
+    --strict-config
+    --verbose
+    --tb=short
+    --alluredir=allure-results
+    --clean-alluredir
+markers =
+    smoke: marks tests as smoke tests
+    regression: marks tests as regression tests
+    login: marks tests related to login functionality
+    slow: marks tests as slow running
+    danger: tests that may cause issues with other tests
+    only: when you only want to run a specific test or 2
+    fail: somethign that forces a fail
+    compatibility: tests to run in multiple browsers for compatibility testing
+    trigger_ai_healing: Failing test to trigger AI-powered test healing on failure
+testpaths = tests
+python_files = test_*.py
+python_classes = Test*
+python_functions = test_*
+
+</file>
+
+<file path="requirements_with_versions.txt">
+# include versions
+pytest==7.4.0
+pytest-playwright==0.6.0
+pytest-html==3.2.0
+pytest-rerunfailures==10.3
+python-dotenv==1.0.0
+pydantic==2.3.0
+playwright==1.54.0 #1.38.0
+httpx==0.24.1
+pytest-asyncio==0.23.6
+pytest-xdist==3.6.1
+allure-pytest==2.15.0
+greenlet==3.2.3
+</file>
+
+<file path="tests/__init__.py">
+
+</file>
+
+<file path="tests/conftest.py">
+"""
+===============================================================================
+Pytest Configuration and Fixtures
+===============================================================================
+
+This module contains pytest configuration, fixtures, and shared test utilities
+for the Hudl application test suite. It provides centralized fixture definitions
+that are available across all test modules.
+
+Features:
+    ✓ App fixture that aggregates all page objects for easy test access.
+    ✓ Login page fixture with automatic navigation for login-specific tests.
+    ✓ Environment variable loading for configuration management.
+    ✓ Centralized fixture management to avoid code duplication.
+
+Usage Example:
+    # Fixtures are automatically available in all test files
+    @pytest.mark.asyncio
+    async def test_something(app):
+        await app.login_page.enter_email("user@example.com")
+        await app.dashboard_page.verify_user_info()
+
+Conventions:
+    - All fixtures are async to maintain Playwright compatibility.
+    - The app fixture provides access to all page objects through a single instance.
+    - Environment variables are loaded once at module level.
+    - Fixtures follow the naming convention of the classes they instantiate.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+import pytest
+from pages.login_page import LoginPage
+from pages.app import App
+
+# ------------------------------------------------------------------------------
+# Login Page Fixture with Auto-Navigation
+# ------------------------------------------------------------------------------
+
+@pytest.fixture
+async def login_page(page):
+    """
+    Fixture that provides a LoginPage instance with automatic navigation
+    to the login page. Useful for tests that focus specifically on login functionality.
+    
+    Args:
+        page: Playwright page fixture
+        
+    Returns:
+        LoginPage: Configured login page object with navigation completed
+    """
+    login_page = LoginPage(page)
+    await login_page.load_login_direct()
+    return login_page
+
+# ------------------------------------------------------------------------------
+# App Fixture - Central Page Object Aggregator
+# ------------------------------------------------------------------------------
+
+@pytest.fixture
+async def app(page):
+    """
+    Fixture that provides an App instance containing all page objects.
+    This is the primary fixture for most tests, eliminating the need
+    to pass multiple page fixtures to test functions.
+    
+    Args:
+        page: Playwright page fixture
+        
+    Returns:
+        App: Application object with access to all page objects
+        
+    Usage:
+        Any pages configured in pages/app.py will be available here through
+        the app fixture (e.g., app.login_page, app.dashboard_page, etc.)
+    """
+    return App(page)
+</file>
+
+<file path="tests/login/__init__.py">
+
+</file>
+
+<file path="tests/login/test_login.py">
+"""
+===============================================================================
+Login Flow and Navigation Tests
+===============================================================================
+
+This module contains tests that verify the Hudl application's login flows,
+navigation paths, and related functionality such as password reset and
+external link navigation.
+
+Features:
+    ✓ Tests for multiple login entry points (homepage, direct navigation).
+    ✓ Verifies successful login with valid credentials and user profile data.
+    ✓ Tests password reset workflow and navigation.
+    ✓ Validates external link navigation (Privacy Policy, Terms of Service).
+    ✓ Tests account creation flow (commented out to avoid test data pollution).
+
+Usage Example:
+    pytest tests/test_login_flows.py
+
+Conventions:
+    - Each test is marked as async and uses Playwright's async API.
+    - Test data uses PERSONAS for valid credentials.
+    - Comments explain the purpose and steps of each test.
+    - External link tests handle new tab/window contexts properly.
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+import pytest
+from pages.login_page import LoginPage
+from pages.privacy_page import PrivacyPolicyPage
+from pages.terms_page import TermsPage
+from data.personas import PERSONAS
+from utils.decorators.screenshot_decorator import screenshot_on_failure
+
+# ------------------------------------------------------------------------------
+# Test: Loads page and fails to generate screenshot
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.fail
+@pytest.mark.asyncio
+async def test_login_direct_fail(app, request):
+    """
+    Test direct login navigation and fails
+    """
+    await app.login_page.load_login_direct()
+    assert False, "This will trigger a screenshot"
+
+# ------------------------------------------------------------------------------
+# Test: Login from Homepage Navigation
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_from_home_valid_credentials(app):
+    """
+    Test the complete login flow starting from the homepage.
+    Navigates through homepage -> login link -> second Hudl link -> login process.
+    """
+    await app.login_page.load_home()
+    await app.login_page.click_login_link()
+    await app.login_page.click_second_hudl_link()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
+    await app.login_page.click_continue()
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
+# Test: Direct Login with Valid Credentials
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.smoke
+@pytest.mark.login
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    """
+    Test direct login navigation with valid credentials.
+    Verifies successful login and validates user profile information on dashboard.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.fill_email_and_password_submit(PERSONAS["user"]["email"],PERSONAS["user"]["password"])
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
+# Test: Direct Login with Valid Credentials - fails on purpose
+# ------------------------------------------------------------------------------
+
+@pytest.mark.trigger_ai_healing
+@screenshot_on_failure
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    """
+    Test direct login navigation with valid credentials.
+    Verifies successful login and validates user profile information on dashboard.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_passwordx(PERSONAS["user"]["password"])
+    await app.login_page.click_continue()
+    await app.dashboard_page.verify_user_profile_info()
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
+# Test: Direct Login with Valid Credentials then Logout (could be combined with above)
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.smoke
+@pytest.mark.login
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials_then_logout(app):
+    """
+    Test direct login navigation with valid credentials.
+    Verifies successful login and validates user profile information on dashboard.
+    Logs out
+    Verifies login available and dash doesnt load
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.fill_email_and_password_submit(PERSONAS["user"]["email"],PERSONAS["user"]["password"])
+    await app.dashboard_page.verify_user_profile_info()
+    await app.dashboard_page.click_user_avatar()
+    await app.dashboard_page.click_logout()
+    await app.login_page.load_home()
+    await app.login_page.email_textbox.is_visible()
+
+
+# ------------------------------------------------------------------------------
+# Test: Forgot Password Flow - Email Verification
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_forgot_password_email_verification(app):
+    """
+    Test the forgot password flow to verify email is pre-populated correctly.
+    Stops before actually sending the reset email to avoid system pollution.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    # Verify password field is visible before proceeding to reset
+    assert await app.login_page.password_textbox.is_visible()
+    await app.login_page.reset_password_link.click()
+    # Verify email is pre-populated in the reset form
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
+    # Note: Actual email sending is not tested to avoid system pollution
+
+    #click link to continue
+    #verify message for email sent
+    #ideally here we'd then actually check the email or perhaps look in db for audit log?
+
+# ------------------------------------------------------------------------------
+# Test: Forgot Password Flow - Go Back Navigation
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_forgot_password_go_back(app):
+    """
+    Test the forgot password flow with go back navigation.
+    Verifies that users can navigate back from the reset password screen.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    # Verify password field is visible
+    assert await app.login_page.password_textbox.is_visible()
+    
+    # Navigate to reset password screen
+    await app.login_page.reset_password_link.click()
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
+    assert await app.login_page.reset_password_heading.is_visible()
+    
+    # Navigate back to login screen
+    await app.login_page.go_back_reset_link.click()
+    await app.login_page.get_email_text() == PERSONAS["user"]["email"]
+
+# ------------------------------------------------------------------------------
+# Test: Privacy Policy Link Navigation
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_privacy_link(page):
+    """
+    Test navigation to Privacy Policy page from login screen.
+    Handles new tab/window context and verifies page loads correctly.
+    """
+    login_page = LoginPage(page)
+    await login_page.load_login_direct()
+    context = page.context
+    
+    # Handle new tab/window opening
+    async with context.expect_page() as new_page_info:
+        await login_page.privacy_policy_link.click()
+    new_page = await new_page_info.value
+    
+    # Verify Privacy Policy page loads correctly
+    privacy_policy_page = PrivacyPolicyPage(new_page)
+    await privacy_policy_page.privacy_policy_heading.wait_for(state="visible")
+    assert await privacy_policy_page.privacy_policy_heading.is_visible()
+
+# ------------------------------------------------------------------------------
+# Test: Terms of Service Link Navigation
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_terms_link(page):
+    """
+    Test navigation to Terms of Service page from login screen.
+    Handles new tab/window context and verifies page loads correctly.
+    """
+    login_page = LoginPage(page)
+    await login_page.load_login_direct()
+    context = page.context
+    
+    # Handle new tab/window opening
+    async with context.expect_page() as new_page_info:
+        await login_page.terms_link.click()
+    new_page = await new_page_info.value
+    
+    # Verify Terms of Service page loads correctly
+    terms_page = TermsPage(new_page)
+    await terms_page.site_terms_heading.wait_for(state="visible")
+    assert await terms_page.site_terms_heading.is_visible()
+
+# ------------------------------------------------------------------------------
+# (Commented Out) Test: Account Creation Flow
+# ------------------------------------------------------------------------------
+
+# The following test is commented out to avoid creating test accounts in the system.
+# It demonstrates how to test the account creation workflow.
+
+# @screenshot_on_failure
+# @pytest.mark.login
+# @pytest.mark.asyncio
+# async def test_create_account_flow(app):
+#     """
+#     Test the account creation flow without actually creating an account.
+#     Demonstrates the workflow but navigates back to avoid system pollution.
+#     """
+#     await app.login_page.load_login_direct()
+#     await app.login_page.click_create_account()
+#     await app.login_page.enter_first_name("Phil")
+#     await app.login_page.enter_last_name("McNeely")
+#     await app.login_page.enter_email(PERSONAS["pm"]["email"])
+#     # Navigate back to login instead of creating account
+#     await app.login_page.click_login_link()
+
+# ------------------------------------------------------------------------------
+# (Commented Out) additional test ideas
+# ------------------------------------------------------------------------------
+# Invalid account forget password - itll try to send either way it seems, so not a valid case from my limited knowledge
+# not valid? buttons clickable even when fields empty
+# Create account but with validation on each field errors - not impl
+# login - homepage - login remains logged in
+# logout is logged out?
+</file>
+
+<file path="tests/login/test_login_attacks.py">
+"""
+===============================================================================
+Login Attack and Security Tests
+===============================================================================
+
+This module contains tests that verify the Hudl application's login page
+security and robustness against common attack vectors and invalid input scenarios.
+
+Features:
+    ✓ Tests for SQL injection, XSS, HTML injection, and command injection attempts.
+    ✓ Verifies proper error handling and user feedback for invalid logins.
+    ✓ Ensures the login form is resilient to malicious input and brute force attacks.
+    ✓ Uses async Playwright test patterns for reliability and speed.
+
+Usage Example:
+    pytest tests/test_login.py
+
+Conventions:
+    - Each test is marked as async and uses Playwright's async API.
+    - Test data for attacks is defined inline for clarity.
+    - Comments explain the purpose and steps of each test.
+    - Assertions check for expected error messages or safe behavior.
+
+Todo: move to using the data.test_data file to populate the conditions, for now hardcoded
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+import pytest
+from pages.login_page import LoginPage
+from utils.decorators.screenshot_decorator import screenshot_on_failure
+
+# ------------------------------------------------------------------------------
+# Test: SQL Injection in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_comprehensive_email_sql_injection(app):
+    """
+    Attempt to login using various SQL injection payloads in the email field.
+    Verifies that the login form is not vulnerable and displays the correct error.
+    """
+    injection_payloads = [
+        "admin'--",
+        "' OR '1'='1",
+        "' OR 1=1--",
+        "'; DROP TABLE users;--",
+        "' UNION SELECT * FROM users--",
+        "' OR 'x'='x"
+    ]
+    for email_payload in injection_payloads:
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(email_payload)
+        await app.login_page.click_continue()
+        # Assert that the invalid email error message is visible
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        expected_message = app.login_page.error_message_email_invalid_text
+        actual_message = await app.login_page.get_error_message_email_invalid_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_invalid_error_icon()
+
+# ------------------------------------------------------------------------------
+# (Commented Out) Test: SQL Injection in Password Field
+# ------------------------------------------------------------------------------
+
+# The following test is commented out to avoid account lockout risks.
+# It demonstrates how to test SQL injection in the password field for multiple accounts.
+
+# @screenshot_on_failure
+# @pytest.mark.login
+# @pytest.mark.asyncio
+# async def test_login_comprehensive_password_sql_injection(app):
+#     """
+#     Attempt to login using various SQL injection payloads in the password field.
+#     Verifies that the login form is not vulnerable and displays the correct error.
+#     """
+#     injection_payloads = [
+#         ("admin1@test.com", "pass'--"),
+#         ("admin2@test.com", "' OR '1'='1"),
+#         ("admin3@test.com", "' OR 1=1--"),
+#         ("admin4@test.com", "'; DROP TABLE users;--"),
+#         ("admin5@test.com", "' UNION SELECT * FROM users--"),
+#         ("admin6@test.com", "' OR 'x'='x")
+#     ]
+#     for email_payload, password_payload in injection_payloads:
+#         await app.login_page.load_login_direct()
+#         await app.login_page.enter_email(email_payload)
+#         await app.login_page.click_continue()
+#         await app.login_page.enter_password(password_payload)
+#         await app.login_page.click_continue()
+#         # Optionally, wait for error message to appear
+#         # await page.wait_for_timeout(2000)
+#         assert await app.login_page.error_message_email_or_password_incorrect.is_visible()
+#         expected_message = app.login_page.error_message_email_incorrect_text
+#         actual_message = await app.login_page.get_error_message_password_incorrect_text()
+#         assert expected_message == actual_message
+#         assert await app.login_page.has_email_or_password_incorrect_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: XSS in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_xss_email_field(page):
+    """
+    Attempt to inject a script tag in the email field to test for XSS vulnerability.
+    Verifies that the script is not rendered in the page content.
+    """
+    login_page = LoginPage(page)
+    await login_page.load_login_direct()
+    # Attempt to inject a script tag
+    await login_page.enter_email("<script>alert('xss')</script>")
+    await login_page.click_continue()
+    # Assert that the script tag is not present in the page content
+    assert "<script>alert('xss')</script>" not in await page.content()
+
+# ------------------------------------------------------------------------------
+# Test: HTML Injection in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_html_injection_email_field(page):
+    """
+    Attempt to inject HTML in the email field to test for HTML injection.
+    Verifies that the HTML is not rendered in the page content.
+    """
+    login_page = LoginPage(page)
+    await login_page.load_login_direct()
+    await login_page.enter_email("<b>bold@domain.com</b>")
+    await login_page.click_continue()
+    # Assert that the HTML tag is not present in the page content
+    assert "<b>bold@domain.com</b>" not in await page.content()
+
+# ------------------------------------------------------------------------------
+# Test: Command Injection in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_command_injection_password_field(app):
+    """
+    Attempt to inject a command in the email field to test for command injection.
+    Verifies that the login form handles the input safely and shows an error.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("valid; ls;")
+    await app.login_page.click_continue()
+    assert await app.login_page.error_message_email_invalid.is_visible()
+    expected_message = app.login_page.error_message_email_invalid_text
+    actual_message = await app.login_page.get_error_message_email_invalid_text()
+    assert expected_message == actual_message
+    assert await app.login_page.has_email_invalid_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Path Traversal in Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_comprehensive_email_path_traversal(app):
+    """
+    Attempt to login using various Traversal payloads in the email field.
+    Verifies that the login form is not vulnerable and displays the correct error.
+    """
+    injection_payloads = [
+        "../../../etc/passwd",
+        "..\\..\\..\\windows\\system32\\drivers\\etc\\hosts",
+        "%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd",
+        "%252e%252e%252f",
+        "..%c0%af..%c0%af..%c0%afetc%c0%afpasswd",
+        "../../../etc/passwd%00"
+    ]
+    for email_payload in injection_payloads:
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(email_payload)
+        await app.login_page.click_continue()
+        # Assert that the invalid email error message is visible
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        expected_message = app.login_page.error_message_email_invalid_text
+        actual_message = await app.login_page.get_error_message_email_invalid_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_invalid_error_icon()
+
+
+# ------------------------------------------------------------------------------
+# Test: Brute Force / Rapid Login Attempts
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_brute_force(app):
+    """
+    Attempt multiple rapid login attempts with incorrect passwords to simulate
+    brute force attacks. Verifies that the application consistently shows the
+    correct error message and does not allow access.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("user@domain.com")
+    await app.login_page.click_continue()
+    for i in range(5):
+        await app.login_page.enter_password(f"wrongpassword{i}")
+        await app.login_page.click_continue()
+        assert await app.login_page.error_message_email_or_password_incorrect.is_visible()
+        expected_message = app.login_page.error_message_email_incorrect_text
+        actual_message = await app.login_page.get_error_message_email_incorrect_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_or_password_incorrect_error_icon()
+</file>
+
+<file path="tests/login/test_login_error_conditions.py">
+"""
+===============================================================================
+Login Validation Tests
+===============================================================================
+
+This module contains tests that verify the Hudl application's login page
+validation, error handling, and user experience functionality.
+
+Features:
+    ✓ Tests for invalid credentials, empty fields, and malformed inputs.
+    ✓ Verifies proper error messages and user feedback for various scenarios.
+    ✓ Tests account blocking functionality after multiple failed attempts.
+    ✓ Validates password masking/unmasking functionality.
+    ✓ Tests email editing and correction workflows.
+
+Usage Example:
+    pytest tests/test_login_validation.py
+
+Conventions:
+    - Each test is marked as async and uses Playwright's async API.
+    - Test data uses PERSONAS for valid credentials and inline data for invalid cases.
+    - Comments explain the purpose and steps of each test.
+    - Assertions check for expected error messages and UI behavior.
+
+Todo: move to using the data.test_data file to populate the conditions, for now hardcoded
+
+Author: PMAC
+Date: [2025-07-27]
+===============================================================================
+"""
+
+import pytest
+from data.personas import PERSONAS
+from utils.decorators.screenshot_decorator import screenshot_on_failure
+
+# ------------------------------------------------------------------------------
+# Test: Valid Account with Invalid Password
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_invalid_password(app):
+    """
+    Test login with a valid email but incorrect password.
+    Verifies that the appropriate error message is displayed.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_password("wrongpassword")
+    await app.login_page.click_continue()
+    # Assert error message for incorrect password is visible
+    assert await app.login_page.error_message_email_or_password_incorrect.is_visible()
+    assert app.login_page.error_message_password_incorrect_text == await app.login_page.get_error_message_password_incorrect_text()
+    assert await app.login_page.has_email_or_password_incorrect_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Invalid Email Account
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_invalid_email(app):
+    """
+    Test login with an invalid/non-existent email address.
+    Verifies that the appropriate error message is displayed.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("dadfdf@gmail.com")
+    await app.login_page.click_continue()
+    await app.login_page.enter_password("wrongpassword")
+    await app.login_page.click_continue()
+    # Assert error message for incorrect email is visible
+    assert await app.login_page.error_message_email_or_password_incorrect.is_visible()
+    expected_message = app.login_page.error_message_email_incorrect_text
+    actual_message = await app.login_page.get_error_message_email_incorrect_text()
+    assert expected_message == actual_message
+    assert await app.login_page.has_email_or_password_incorrect_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Account Blocking After Multiple Failed Attempts
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.danger
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_account_blocked_after_multiple_attempts(app):
+    """
+    Test that an account gets blocked after multiple failed login attempts.
+    This test is marked as 'danger' as it can lock out the test account.
+    """
+    # Simulate multiple failed login attempts (assuming 10+ attempts trigger the block) #hrmmmmm blocked myslef but this 10 doesnt seem to work, need to fix?
+    for _ in range(11):
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(PERSONAS["user"]["email"])
+        await app.login_page.click_continue()
+        await app.login_page.enter_password("wrongpassword")
+        await app.login_page.click_continue()
+    
+    # Wait for blocked account alert to appear
+    await app.login_page.blocked_account_alert.wait_for(state="visible", timeout=5000) #need to mabe navigate back to main login?
+    
+    # Verify account is blocked and message is correct
+    assert await app.login_page.is_account_blocked()
+    expected_message = app.login_page.blocked_account_alert_text
+    actual_message = await app.login_page.get_blocked_account_text()
+    assert expected_message == actual_message
+
+# ------------------------------------------------------------------------------
+# Test: Empty Email Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_empty_email(app):
+    """
+    Test login attempt with an empty email field.
+    Verifies that the required field error message is displayed.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("")
+    await app.login_page.click_continue()
+    # Assert error message for required email field is visible
+    assert await app.login_page.error_message_email_required.is_visible()
+    expected_message = app.login_page.error_message_email_required_text
+    actual_message = await app.login_page.get_error_message_email_required_text()
+    assert expected_message == actual_message
+    assert await app.login_page.has_email_required_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Empty Password Field
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_empty_password(app):
+    """
+    Test login attempt with a valid email but empty password field.
+    Verifies that the required field error message is displayed.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("valid@email.com")
+    await app.login_page.click_continue()
+    await app.login_page.enter_password("")
+    await app.login_page.click_continue()
+    # Assert error message for required password field is visible
+    assert await app.login_page.error_message_password_required.is_visible()
+    expected_message = app.login_page.error_message_password_required_text
+    actual_message = await app.login_page.get_error_message_password_required_text()
+    assert expected_message == actual_message
+    assert await app.login_page.has_password_required_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Malformed Email Entry
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.compatibility
+@pytest.mark.asyncio
+async def test_login_malformed_email_just_text(app):
+    """
+    Test login with malformed email (just text without @ or domain), numbers, 
+    single number, a single special character, spaces and unicode.
+    Verifies that the email validation error is displayed and password field is not shown.
+    I will leave seperate tests for too long a string.
+    """
+    email_payloads = [
+        "asdaqdasf",
+        "12345",
+        "1",
+        "@",
+        "dadfdf_)_)&*^*(^)*&%%&^I$%$^#^$$@gmail.com",
+        "        ",
+        "用户名"
+    ]
+    for email_payload in email_payloads:
+        await app.login_page.load_login_direct()
+        await app.login_page.enter_email(email_payload)
+        await app.login_page.click_continue()
+        # Assert that the invalid email error message is visible
+        assert not await app.login_page.password_textbox.is_visible()
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        expected_message = app.login_page.error_message_email_invalid_text
+        actual_message = await app.login_page.get_error_message_email_invalid_text()
+        assert expected_message == actual_message
+        assert await app.login_page.has_email_invalid_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Edit Invalid Email to Valid Email
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_edit_invalid_account(app):
+    """
+    Test the workflow of entering an invalid email, then editing it to a valid one
+    and completing the login process successfully.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email("valid@email.com")
+    await app.login_page.click_continue()
+    # Verify password field is visible for the initial email
+    assert await app.login_page.password_textbox.is_visible()
+    # Edit the email to a valid account
+    await app.login_page.edit_email_link.click()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_password(PERSONAS["user"]["password"])
+    await app.login_page.click_continue()
+    await app.dashboard_page.verify_user_profile_info()
+
+# ------------------------------------------------------------------------------
+# Test: Email with Too Many Characters (300+)
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_email_too_long(app):
+    """
+    Test login with an email that exceeds the maximum character limit (300 characters).
+    Verifies that the email validation error is displayed.
+    """
+    await app.login_page.load_login_direct()
+    too_long_email_string = "s0F9OjxlA1g2aCxKK9xV2FBvbprskrqaWI8y64DqnVL7yn2rbfoCKod5F8LcqQiMXLhlrn5sMlU87vgr6F4wG3q1FX4dfCcRotpjRx2yQcJsyIpSaUqXraUPmO4K4cag96wREf3zmqcgrZ7ZeETsIFguyR9NG9KTfcX54eox4CoBHKTepsE8OPZaHpFE9tmtyjGWb69PtWcvQp28D6WslyI2sLFV97lQSQyLgdj7LBt9F4BhdW5Uw9fqSSs6bCDTatKbej6qhyXgkftxPMkyPaixRda0uJ5UZbKyASfnxQO7"
+    await app.login_page.enter_email(too_long_email_string)
+    await app.login_page.click_continue()
+    # Assert email validation error is shown
+    assert await app.login_page.error_message_email_invalid.is_visible()
+    expected_message = app.login_page.error_message_email_invalid_text
+    actual_message = await app.login_page.get_error_message_email_invalid_text()
+    assert expected_message == actual_message
+    assert await app.login_page.has_email_invalid_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Password with Too Many Characters (300+)
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_password_too_long(app):
+    """
+    Test login with a password that exceeds the maximum character limit (300 characters).
+    Verifies that the login fails with appropriate error message.
+    """
+    await app.login_page.load_login_direct()
+    too_long_password_string = "s0F9OjxlA1g2aCxKK9xV2FBvbprskrqaWI8y64DqnVL7yn2rbfoCKod5F8LcqQiMXLhlrn5sMlU87vgr6F4wG3q1FX4dfCcRotpjRx2yQcJsyIpSaUqXraUPmO4K4cag96wREf3zmqcgrZ7ZeETsIFguyR9NG9KTfcX54eox4CoBHKTepsE8OPZaHpFE9tmtyjGWb69PtWcvQp28D6WslyI2sLFV97lQSQyLgdj7LBt9F4BhdW5Uw9fqSSs6bCDTatKbej6qhyXgkftxPMkyPaixRda0uJ5UZbKyASfnxQO7"
+    await app.login_page.enter_email("valid@gmail.com")
+    await app.login_page.click_continue()
+    await app.login_page.enter_password(too_long_password_string)
+    await app.login_page.click_continue()
+    # Assert password error is shown
+    assert await app.login_page.error_message_email_or_password_incorrect.is_visible()
+    assert app.login_page.error_message_email_incorrect_text == await app.login_page.get_error_message_password_incorrect_text()
+    assert await app.login_page.has_email_or_password_incorrect_error_icon()
+
+# ------------------------------------------------------------------------------
+# Test: Password Masking/Unmasking Functionality
+# ------------------------------------------------------------------------------
+
+@screenshot_on_failure
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_password_shown_when_button_clicked(app):
+    """
+    Test the password show/hide functionality to ensure passwords are properly masked
+    and can be revealed when the show password button is clicked.
+    """
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email(PERSONAS["user"]["email"])
+    await app.login_page.click_continue()
+    await app.login_page.enter_password("supersecret")
+
+    # Ensure password is hidden by default (type="password")
+    input_type = await app.login_page.password_textbox.get_attribute("type")
+    assert input_type == "password"
+
+    # Click the show password button to reveal the password
+    await app.login_page.show_password_button.click()
+    input_type_after = await app.login_page.password_textbox.get_attribute("type")
+    assert input_type_after == "text"
+    password_text = await app.login_page.get_password_text()
+    assert password_text == "supersecret"
+
+    # Click again to hide the password
+    await app.login_page.show_password_button.click()
+    input_type_hidden = await app.login_page.password_textbox.get_attribute("type")
+    assert input_type_hidden == "password"
+</file>
+
+<file path="tests/test_smoke.py">
+"""Smoke test to verify framework running after Chromium broke"""
+import pytest
+
+@pytest.mark.only
+@pytest.mark.asyncio
+async def test_hudl_homepage(page):
+    await page.goto("https://www.hudl.com/")
+    assert "Hudl" in await page.title()
+</file>
+
+<file path="utils/__init__.py">
+
+</file>
+
+<file path="utils/ai_healing.py">
+"""
+===============================================================================
+AI Healing Service for Playwright Tests Using Ollama Model
+===============================================================================
+
+This module provides the OllamaAIHealingService class and related functions
+for capturing test failure context, querying the Ollama AI model for healing
+analysis, and generating detailed healing reports.
+
+Features:
+    - Async context capture including screenshots and DOM snapshot
+    - Robust prompt building for AI analysis
+    - Querying Ollama with retries and error handling
+    - Parsing Ollama JSON responses with multiple fallback strategies
+    - Saving detailed markdown reports and healed test code
+    - Thread-safe context storage for parallel test runs
+
+Environment Variables:
+    OLLAMA_MODEL: Ollama model to use (default: llama3.1:8b)
+    AI_HEALING_ENABLED: Enable AI healing (true|false, default: false)
+    AI_HEALING_CONFIDENCE: Confidence threshold for healed tests (default: 0.7)
+    OLLAMA_HOST: Ollama server URL (default: http://localhost:11434)
+    OLLAMA_TEMPERATURE: Temperature setting for Ollama model (default: 0.1)
+    AI_HEALING_CONTEXT_WINDOW: Max number of DOM characters to include (default: 5000)
+
+Author: PMAC
+Date: [2025-07-29]
+===============================================================================
+"""
+
+import json
+import inspect
+import os
+import requests
+from pathlib import Path
+from datetime import datetime
+import subprocess
+import time
+import shutil
+import ollama
+
+from utils.debug import debug_print
+import re
+
+# ------------------------------------------------------------------------------
+# Function: strip_style_tags
+# ------------------------------------------------------------------------------
+
+def strip_style_tags(html):
+    """
+    Remove all <style>...</style> tags and their content from the HTML string.
+
+    Args:
+        html (str): The HTML content as a string.
+
+    Returns:
+        str: HTML string with all <style> tags and their contents removed.
+    """
+    return re.sub(r'<style.*?>.*?</style>', '', html, flags=re.DOTALL | re.IGNORECASE)
+
+# ------------------------------------------------------------------------------
+# Class: OllamaAIHealingService
+# ------------------------------------------------------------------------------
+
+class OllamaAIHealingService:
+    """
+    Service class to manage AI healing using Ollama model.
+    Handles context capture, prompt building, querying, response parsing,
+    and report generation.
+    """
+
+    def __init__(self):
+        self.model = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+        self.enabled = os.getenv("AI_HEALING_ENABLED", "false").lower() == "true"
+        self.confidence_threshold = float(os.getenv("AI_HEALING_CONFIDENCE", "0.7"))
+        self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        self.temperature = float(os.getenv("OLLAMA_TEMPERATURE", "0.1"))
+        self.context_window = int(os.getenv("AI_HEALING_CONTEXT_WINDOW", "5000"))
+        self.client = ollama.Client(host=self.ollama_host)
+
+    async def capture_failure_context(self, page, error, test_name, test_function):
+        """
+        Capture all context needed for AI analysis including URL, title, screenshot, and DOM.
+        """
+        context = {
+            "test_name": test_name,
+            "error_message": str(error),
+            "error_type": type(error).__name__,
+            "test_docstring": getattr(test_function, "__doc__", ""),
+        }
+        screenshot_path = None
+        try:
+            debug_print(f"[AI Healing] capture_failure_context called for test '{test_name}'")
+            if page:
+                debug_print(f"[AI Healing] Page object is present for test '{test_name}'")
+                context["url"] = page.url  # <-- FIXED: no ()
+                context["title"] = await page.title()  # <-- Only title() is a coroutine
+
+                screenshot_dir = Path("screenshots")
+                screenshot_dir.mkdir(exist_ok=True)
+                timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                screenshot_path = screenshot_dir / f"{test_name}_{timestamp}_ai_healing.png"
+                await page.screenshot(path=str(screenshot_path))
+                context["screenshot_path"] = str(screenshot_path)
+                dom_content = await page.content()
+                #remove excess css since we want a smaller htl contxt to pass to the LLM
+                dom_content = strip_style_tags(dom_content)
+                context["dom"] = (
+                    dom_content[:self.context_window] + "..."
+                    if len(dom_content) > self.context_window
+                    else dom_content
+                )
+                debug_print(f"[AI Healing] DOM captured: {len(context['dom'])} characters for test '{test_name}'")
+            else:
+                debug_print(f"[AI Healing] No page object for test '{test_name}'")
+        except Exception as e:
+            debug_print(f"[AI Healing] Exception in capture_failure_context: {e}")
+            context["capture_error"] = str(e)
+        return context, screenshot_path
+
+    def _build_healing_prompt(self, context, original_test_code):
+        """
+        Build a comprehensive prompt for Ollama AI model based on test failure context.
+
+        Args:
+            context (dict): Captured failure context
+            original_test_code (str): Source code of the original test
+
+        Returns:
+            str: Formatted prompt string
+        """
+        prompt = f"""
+            You are an expert Quality Assurance Engineer and test automation specialist. 
+
+            A Playwright Python test has failed and needs analysis for potential auto-healing.
+
+            ## Test Information:
+            - **Test Name**: {context['test_name']}
+            - **Error Type**: {context.get('error_type', 'Unknown')}
+            - **URL**: {context.get('url', 'N/A')}
+            - **Page Title**: {context.get('title', 'N/A')}
+
+            ## Error Message:
+            ```
+            {context['error_message']}
+            ```
+
+            ## Original Test Code:
+            ```python
+            {original_test_code}
+            ```
+
+            ## Test Documentation:
+            {context.get('test_docstring', 'No test docstring provided')}
+
+            ## DOM Context (truncated):
+            ```html
+            {context.get('dom', 'No DOM captured')}
+            ```
+
+            ## Your Task:
+            Analyze this test failure and provide:
+
+            1. **Root Cause Analysis**: What exactly caused this test to fail?
+            2. **Confidence Score**: Rate your confidence in the analysis (0.0 to 1.0)
+            3. **Suggested Fix**: Specific code changes or approach to fix the test
+            4. **Updated Test Code**: Always provide a corrected version of the test code that fixes the failure. Return only the updated test function code in Python.
+            5. **Recommendations**: Additional suggestions for test stability
+
+            IMPORTANT: Respond ONLY with a valid JSON object, no markdown formatting or extra text.
+
+            {{
+                "analysis": "Detailed analysis of what went wrong",
+                "root_cause": "Specific root cause identified",
+                "confidence": 0.85,
+                "suggested_fix": "Specific fix recommendation",
+                "updated_test_code": "Complete fixed test code (if confident)",
+                "recommendations": "Additional recommendations for improvement"
+            }}
+
+            Focus on common Playwright issues like:
+            - Element not found/changed selectors
+            - Timing issues and race conditions  
+            - Network/loading problems
+            - State management issues
+            - Flaky test patterns
+            """
+        return prompt
+
+    def _query_ollama(self, prompt, screenshot_path=None):
+        """
+        Query Ollama with prompt and optional screenshot.
+
+        Args:
+            prompt (str): The prompt string to send
+            screenshot_path (str): Optional path to screenshot image
+
+        Returns:
+            str or None: Ollama response text or None on failure
+        """
+        try:
+            print(f"🧠 Querying Ollama model: {self.model}")
+
+            # Prepare the request
+            request_params = {
+                'model': self.model,
+                'prompt': prompt,
+                'stream': False,
+                'system': "You are an expert Quality Assurance Engineer and test automation specialist. Respond ONLY with valid JSON, no markdown or extra text.",
+                'options': {
+                    'temperature': self.temperature,
+                    'num_ctx': 8192,  # Larger context window
+                }
+            }
+
+            # Add screenshot if available
+            if screenshot_path and Path(screenshot_path).exists():
+                request_params['images'] = [screenshot_path]
+                print(f"📸 Including screenshot: {screenshot_path}")
+
+            response = self.client.generate(**request_params)
+            return response['response']
+
+        except Exception as e:
+            print(f"🤖 Ollama query failed: {e}")
+            return None
+
+    def _parse_ollama_response(self, response_text):
+        """
+        Parse Ollama response and extract JSON with robust error handling.
+
+        Args:
+            response_text (str): Raw response text from Ollama
+
+        Returns:
+            dict or None: Parsed JSON dict or None if parsing failed
+        """
+        if not response_text:
+            print("🤖 Empty response from Ollama")
+            return None
+
+        # Log the raw response for debugging
+        print(f"🤖 Raw Ollama response (first 200 chars): {response_text[:200]}...")
+
+        import re
+
+        # Strategy 1: Try to find JSON inside a code block
+        json_match = re.search(r'```json\s*({.*?})\s*```', response_text, re.DOTALL)
+        if json_match:
+            candidate = json_match.group(1)
+            print("🤖 Found JSON in code block")
+        else:
+            # Strategy 2: Try to find any code block
+            code_match = re.search(r'```(.*?)```', response_text, re.DOTALL)
+            if code_match:
+                candidate = code_match.group(1).strip()
+                print("🤖 Found content in code block")
+            else:
+                # Strategy 3: Look for JSON-like structure anywhere in text
+                json_pattern = re.search(r'({\s*"[^"]+":.*?})', response_text, re.DOTALL)
+                if json_pattern:
+                    candidate = json_pattern.group(1)
+                    print("🤖 Found JSON-like structure in text")
+                else:
+                    # Strategy 4: Use the entire response
+                    candidate = response_text.strip()
+                    print("🤖 Using entire response as candidate")
+
+        # Try to parse the candidate as JSON
+        try:
+            parsed = json.loads(candidate)
+            print("✅ Successfully parsed JSON response")
+            return parsed
+        except json.JSONDecodeError as e:
+            print(f"🤖 JSON parsing failed: {e}")
+
+            # Strategy 5: Try to fix common JSON issues
+            try:
+                # Remove any leading/trailing non-JSON text
+                cleaned = re.sub(r'^[^{]*', '', candidate)
+                cleaned = re.sub(r'[^}]*$', '', cleaned)
+
+                if cleaned:
+                    parsed = json.loads(cleaned)
+                    print("✅ Successfully parsed cleaned JSON")
+                    return parsed
+            except:
+                pass
+
+            # Strategy 6: Try to extract key information manually
+            try:
+                analysis_match = re.search(r'"analysis"\s*:\s*"([^"]*)"', response_text)
+                root_cause_match = re.search(r'"root_cause"\s*:\s*"([^"]*)"', response_text)
+                confidence_match = re.search(r'"confidence"\s*:\s*([0-9.]+)', response_text)
+
+                manual_parse = {
+                    "analysis": analysis_match.group(1) if analysis_match else response_text[:500],
+                    "root_cause": root_cause_match.group(1) if root_cause_match else "Could not extract root cause",
+                    "confidence": float(confidence_match.group(1)) if confidence_match else 0.3,
+                    "suggested_fix": "Manual review required - JSON parsing failed",
+                    "recommendations": "Check Ollama model output format"
+                }
+                print("🔧 Manually extracted key information")
+                return manual_parse
+            except:
+                pass
+
+            # Final fallback: Return raw response in structured format
+            print("⚠️ All parsing strategies failed, returning raw response")
+            return {
+                "analysis": response_text,
+                "root_cause": "Could not parse structured response",
+                "confidence": 0.2,
+                "suggested_fix": "Manual review required - response parsing failed",
+                "recommendations": "Consider using a different Ollama model or adjusting prompt",
+                "raw_unparsed_response": response_text
+            }
+
+    def call_ollama_healing(self, context, original_test_code, screenshot_path=None):
+        """
+        Call Ollama for test healing analysis.
+
+        Args:
+            context (dict): Captured failure context
+            original_test_code (str): Source code of the original test
+            screenshot_path (str): Optional path to screenshot image
+
+        Returns:
+            dict: Parsed Ollama response or error dict
+        """
+        try:
+            debug_print("🤖 [DEBUG] Building healing prompt...")
+            prompt = self._build_healing_prompt(context, original_test_code)
+            debug_print(f"🤖 [DEBUG] Prompt built:\n{prompt}")
+
+            debug_print("🤖 [DEBUG] Querying Ollama service...")
+            raw_response = self._query_ollama(prompt, screenshot_path)
+            debug_print(f"🤖 [DEBUG] Raw Ollama response:\n{raw_response}")
+
+            if raw_response:
+                debug_print("🤖 [DEBUG] Parsing Ollama response...")
+                parsed_response = self._parse_ollama_response(raw_response)
+
+                if parsed_response is None:
+                    debug_print("🤖 [DEBUG] Parsed response is None, returning error dict")
+                    return {"error": "Failed to parse Ollama response"}
+
+                # Add raw response for debugging
+                parsed_response['raw_ollama_response'] = raw_response
+
+                debug_print(f"🤖 [DEBUG] Parsed Ollama response:\n{parsed_response}")
+                return parsed_response
+
+            debug_print("🤖 [DEBUG] No response received from Ollama")
+            return {"error": "No response from Ollama"}
+
+        except Exception as e:
+            print(f"🤖 Ollama healing service error: {e}")
+            import traceback
+            traceback.print_exc()
+            return {"error": str(e)}
+
+    def stop_model(self):
+        """
+        Stop the Ollama model to free resources.
+        """
+        try:
+            res = self.client.generate(
+                model=self.model,
+                stream=False,
+                keep_alive=0,
+            )
+            if hasattr(res, 'done_reason') and str(res.done_reason) == "unload":
+                print(f"🧠 AI Model Stopped: {self.model}")
+        except Exception as e:
+            print(f"🤖 Failed to stop model: {e}")
+
+    def extract_test_source(self, test_function):
+        """
+        Extract the source code of the test function.
+
+        Args:
+            test_function (function): The test function object
+
+        Returns:
+            str: Source code string or fallback comment
+        """
+        try:
+            return inspect.getsource(test_function)
+        except:
+            return f"# Could not extract source for {test_function.__name__}"
+
+    async def generate_healing_report(self, test_name, ai_response, context):
+        """
+        Generate detailed healing report markdown and save healed test code if provided.
+
+        Args:
+            test_name (str): Name of the test
+            ai_response (dict): Parsed Ollama AI response
+            context (dict): Failure context
+
+        Returns:
+            None
+        """
+        healing_dir = Path("ai_healing_reports")
+        healing_dir.mkdir(exist_ok=True)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = healing_dir / f"{test_name}_{timestamp}_ollama_analysis.md"
+
+        report_content = f"""# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `{test_name}`
+- **Timestamp**: `{timestamp}`
+- **Model Used**: `{self.model}`
+- **URL**: `{context.get('url', 'N/A')}`
+- **Error Type**: `{context.get('error_type', 'Unknown')}`
+
+## Error Details
+```
+{context.get('error_message', 'No error message')}
+```
+
+## Ollama Analysis
+```
+{ai_response.get('analysis', 'No analysis provided')}
+```
+
+## Root Cause
+```
+{ai_response.get('root_cause', 'Not identified')}
+```
+
+## Suggested Fix
+```
+{ai_response.get('suggested_fix', 'No fix suggested')}
+```
+
+## Updated Code
+```
+{ai_response.get('updated_test_code', 'No fix suggested')}
+```
+
+## Confidence Level
+**{ai_response.get('confidence', 0):.1%}**
+
+## Recommendations
+```
+{ai_response.get('recommendations', 'None provided')}
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+{ai_response.get('raw_ollama_response', 'No raw response')}
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+"""
+
+        with open(report_file, 'w') as f:
+            f.write(report_content)
+
+        # Save healed test if provided
+        if 'updated_test_code' in ai_response and ai_response['updated_test_code']:
+            healed_test_file = healing_dir / f"{test_name}_{timestamp}_ollama_healed.py"
+            with open(healed_test_file, 'w') as f:
+                f.write(ai_response['updated_test_code'])
+
+            print(f"Ollama healed test saved: {healed_test_file}")
+
+        # Console output
+        print(f"\n{'='*80}")
+        print(f"OLLAMA AI HEALING: {test_name}")
+        print(f"{'='*80}")
+        print(f"🤖 Model: {self.model}")
+        print(f"📊 Confidence: {ai_response.get('confidence', 0):.1%}")
+        print(f"🔍 Root Cause: {ai_response.get('root_cause', 'Unknown')}")
+        print(f"💡 Suggestion: {ai_response.get('suggested_fix', 'None')}")
+        print(f"📄 Full Report: {report_file}")
+
+        if ai_response.get('confidence', 0) > self.confidence_threshold:
+            print(f"✅ High confidence - Review the healed test")
+        else:
+            print(f"⚠️  Low confidence - Manual review recommended")
+
+        print(f"{'='*80}\n")
+
+# ------------------------------------------------------------------------------
+# Global service instance
+# ------------------------------------------------------------------------------
+
+_ollama_service = OllamaAIHealingService()
+
+# ------------------------------------------------------------------------------
+# Function: get_ollama_service
+# ------------------------------------------------------------------------------
+
+def get_ollama_service():
+    """
+    Returns the singleton OllamaAIHealingService instance.
+    """
+    return _ollama_service
+
+# ------------------------------------------------------------------------------
+# Thread-safe dictionaries and locks
+# ------------------------------------------------------------------------------
+
+_ollama_checked = False
+
+# ------------------------------------------------------------------------------
+# Function: _find_page_object
+# ------------------------------------------------------------------------------
+
+def find_page_object(item):
+    """
+    Find the Playwright page object from pytest test item fixtures.
+
+    Args:
+        item: Pytest test item
+
+    Returns:
+        Playwright page object or None
+    """
+    page = None
+    funcargs = getattr(item, 'funcargs', {})
+    if not page:
+        for name, value in funcargs.items():
+            if name == "page" and hasattr(value, 'screenshot'):
+                page = value
+                break
+            elif name == "app" and hasattr(value, "page"):
+                page = value.page
+                break
+            elif name.endswith("_page") and hasattr(value, "screenshot"):
+                page = value
+                break
+            elif hasattr(value, "pages") and value.pages:
+                page = value.pages[0]
+                break
+    return page
+
+# ------------------------------------------------------------------------------
+# Function: ensure_ollama_ready
+# ------------------------------------------------------------------------------
+
+def ensure_ollama_ready(model_name=None, host=None, max_wait=180):
+    """
+    Ensure Ollama service is running and the specified model is loaded and ready.
+
+    Args:
+        model_name (str): Model name to check/load (default: from service)
+        host (str): Ollama host URL (default: from service)
+        max_wait (int): Max wait time in seconds for model warmup
+
+    Returns:
+        bool: True if service and model are available, False otherwise
+    """
+    global _ollama_checked
+    if _ollama_checked:
+        return True
+
+    if not model_name:
+        model_name = _ollama_service.model
+    if not host:
+        host = _ollama_service.ollama_host
+
+    print(f"🤖 Checking Ollama service at {host}...")
+    print(f"🤖 Ollama executable path: {shutil.which('ollama')}")
+    try:
+        # Try to ping the Ollama API
+        response = requests.get(f"{host}/api/tags", timeout=3)
+        if response.status_code == 200:
+            print("🤖 Ollama service is already running.")
+        else:
+            print(f"🤖 Ollama service responded with status {response.status_code}")
+    except Exception:
+        print("🤖 Ollama service not running, attempting to start...")
+        try:
+            if not shutil.which("ollama"):
+                print("❌ Ollama command not found. Please install Ollama first.")
+                return False
+            print("🤖 Attempting to start Ollama with: ollama serve")
+            proc = subprocess.Popen(
+                ["ollama", "serve"], 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL
+            )
+            print(f"🤖 Ollama process started with PID: {proc.pid}")
+            print("🤖 Waiting for Ollama service to start...")
+            for i in range(30):
+                try:
+                    response = requests.get(f"{host}/api/tags", timeout=2)
+                    if response.status_code == 200:
+                        print("🤖 Ollama service started successfully.")
+                        break
+                except Exception:
+                    time.sleep(1)
+                    if i % 5 == 0:
+                        print(f"🤖 Still waiting for Ollama... ({i+1}/30)")
+            else:
+                print("❌ Failed to start Ollama service within 30 seconds.")
+                return False
+        except Exception as e:
+            print(f"❌ Could not start Ollama service: {e}")
+            return False
+
+    # Now ensure the model is loaded and warmed up
+    try:
+        print(f"🤖 Checking if model {model_name} is available...")
+        # List available models
+        resp = requests.get(f"{host}/api/tags", timeout=5)
+        if resp.status_code != 200:
+            print(f"❌ Failed to get model list: {resp.status_code}")
+            return False
+        tags = resp.json().get("models", [])
+        model_exists = any(model_name in m.get("name", "") for m in tags)
+        if not model_exists:
+            print(f"🤖 Model {model_name} not found. Attempting to pull...")
+            pull_resp = requests.post(
+                f"{host}/api/pull", 
+                json={"name": model_name}, 
+                timeout=180  # Pulling can take a while
+            )
+            if pull_resp.status_code == 200:
+                print(f"🤖 Model {model_name} pulled successfully.")
+            else:
+                print(f"❌ Failed to pull model {model_name}: {pull_resp.text}")
+                return False
+        # Warm up the model by waiting for a real, non-error response
+        print(f"🤖 Warming up model {model_name} (waiting for a real response)...")
+        start = time.time()
+        while time.time() - start < max_wait:
+            try:
+                gen_resp = requests.post(
+                    f"{host}/api/generate",
+                    json={
+                        "model": model_name,
+                        "prompt": "Hello",
+                        "stream": False,
+                        "options": {"num_predict": 5}
+                    },
+                    timeout=30
+                )
+                if gen_resp.status_code == 200:
+                    response_data = gen_resp.json()
+                    if "response" in response_data and response_data["response"].strip():
+                        print(f"🤖 Model {model_name} is loaded and ready.")
+                        _ollama_checked = True
+                        return True
+                    elif "error" in response_data:
+                        print(f"🤖 Model not ready yet: {response_data['error']}")
+                else:
+                    print(f"🤖 Model not ready, status: {gen_resp.status_code}")
+            except Exception as e:
+                print(f"🤖 Waiting for model to load: {e}")
+            time.sleep(3)
+        print(f"❌ Model {model_name} did not become ready in {max_wait} seconds.")
+        return False
+    except requests.exceptions.Timeout:
+        print(f"❌ Timeout while checking/loading model {model_name}")
+        return False
+    except Exception as e:
+        print(f"❌ Error checking/loading model {model_name}: {e}")
+        return False
+
+
+</file>
+
+<file path="utils/browserstack.py">
+import os
+
+# ------------------------------------------------------------------------------
+# Function: is_browserstack_enabled
+# ------------------------------------------------------------------------------
+
+def is_browserstack_enabled():
+    """
+    Helper function to check if BrowserStack integration is enabled based on the BROWSERSTACK_ENABLED environment variable.
+    Returns True if BROWSERSTACK_ENABLED is set to "true" (case-insensitive), otherwise returns False.
+    """
+
+    return os.getenv("BROWSERSTACK_ENABLED", "false").lower() == "true"
+</file>
+
+<file path="utils/debug.py">
+import os
+
+# ------------------------------------------------------------------------------
+# Function: debug_print
+# ------------------------------------------------------------------------------
+
+def debug_print(*args, **kwargs):
+    """
+    Helper function for conditional debug printing based on the DEBUG_MSG environment variable.
+    Prints messages only if DEBUG_MSG is set to "true" (case-insensitive).
+    Useful for enabling or disabling verbose debug output without code changes.
+    """
+    if os.getenv("DEBUG_MSG", "false").lower() == "true":
+        print(*args, **kwargs)
+</file>
+
+<file path="utils/decorators/retry_decorator.py">
+"""
+Retry decorator for handling flaky tests and network issues.
+"""
+import asyncio
+import functools
+import logging
+from typing import Callable, Any, Type, Tuple
+
+logger = logging.getLogger(__name__)
+
+def async_retry(
+    max_attempts: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,)
+) -> Callable:
+    """
+    Async retry decorator with exponential backoff.
+    
+    Args:
+        max_attempts: Maximum number of retry attempts
+        delay: Initial delay between retries in seconds
+        backoff: Backoff multiplier for delay
+        exceptions: Tuple of exceptions to catch and retry on
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs) -> Any:
+            current_delay = delay
+            last_exception = None
+            
+            for attempt in range(max_attempts):
+                try:
+                    return await func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt == max_attempts - 1:
+                        logger.error(f"Function {func.__name__} failed after {max_attempts} attempts")
+                        raise e
+                    
+                    logger.warning(
+                        f"Attempt {attempt + 1}/{max_attempts} failed for {func.__name__}: {str(e)}. "
+                        f"Retrying in {current_delay} seconds..."
+                    )
+                    await asyncio.sleep(current_delay)
+                    current_delay *= backoff
+            
+            raise last_exception
+        
+        return wrapper
+    return decorator
+
+def sync_retry(
+    max_attempts: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,)
+) -> Callable:
+    """
+    Synchronous retry decorator with exponential backoff.
+    
+    Args:
+        max_attempts: Maximum number of retry attempts
+        delay: Initial delay between retries in seconds
+        backoff: Backoff multiplier for delay
+        exceptions: Tuple of exceptions to catch and retry on
+    """
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            import time
+            current_delay = delay
+            last_exception = None
+            
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt == max_attempts - 1:
+                        logger.error(f"Function {func.__name__} failed after {max_attempts} attempts")
+                        raise e
+                    
+                    logger.warning(
+                        f"Attempt {attempt + 1}/{max_attempts} failed for {func.__name__}: {str(e)}. "
+                        f"Retrying in {current_delay} seconds..."
+                    )
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            
+            raise last_exception
+        
+        return wrapper
+    return decorator
+
+</file>
+
+<file path="utils/decorators/screenshot_decorator.py">
+import functools
+import allure
+import os
+from pathlib import Path
+from datetime import datetime
+
+def screenshot_on_failure(func):
+    """
+    Decorator that automatically captures a screenshot on test failure.
+    Works with any test that has 'app', 'login_page', or 'page' fixture.
+    
+    By convention, any fixture named 'app' or ending with '_page' is assumed
+    to be a page object that has a .page attribute
+    
+    Note: This decorator will automatically find page objects from the test's
+    fixture arguments, so you don't need to add 'request' to every test.
+    
+    Usage:
+        @screenshot_on_failure
+        @pytest.mark.asyncio
+        async def test_something(app):  # No need for 'request' parameter
+            # ... test code ...
+    """
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        # Try to find request fixture if it was passed
+        request = kwargs.get('request')
+        
+        # Find page object using the same scalable logic
+        page = None
+        page_source = None
+        
+        # Loop through all kwargs to find page objects
+        for key, value in kwargs.items():
+            try:
+                # Check if this is the 'app' fixture with a page attribute
+                if key == "app" and hasattr(value, "page"):
+                    page = value.page
+                    page_source = f"app fixture"
+                    break
+                
+                # Check if this is a page object fixture (ends with '_page')
+                elif key.endswith("_page") and hasattr(value, "page"):
+                    page = value.page
+                    page_source = f"{key} fixture"
+                    break
+                
+                # Check if this is the raw Playwright 'page' fixture
+                elif key == "page":
+                    page = value
+                    page_source = f"page fixture"
+                    break
+                    
+            except Exception:
+                continue
+        
+        try:
+            # Run the actual test function
+            return await func(*args, **kwargs)
+        except Exception as exc:
+            # Test failed - attempt to capture screenshot if enabled
+            if os.getenv("AI_HEALING_ENABLED", "false").lower() == "true":
+                print("AI healing is enabled; skipping regular screenshot capture.")
+            elif page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
+                try:
+                    screenshot_dir = Path("screenshots")
+                    screenshot_dir.mkdir(exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+                    
+                    # Use function name or request nodeid if available
+                    if request:
+                        test_name = request.node.nodeid.replace("/", "_").replace("::", "_")
+                    else:
+                        test_name = func.__name__
+                    
+                    screenshot_path = screenshot_dir / f"{test_name}_{timestamp}.png"
+                    
+                    # Capture the screenshot
+                    await page.screenshot(path=str(screenshot_path), full_page=True)
+                    
+                    # Attach screenshot to Allure report
+                    allure.attach.file(
+                        str(screenshot_path),
+                        name="Screenshot on Failure",
+                        attachment_type=allure.attachment_type.PNG
+                    )
+                    
+                    print(f"Screenshot saved and attached to Allure: {screenshot_path}")
+                    #print(f"Page object found via: {page_source}")
+                    
+                except Exception as screenshot_error:
+                    print(f"Failed to capture screenshot: {screenshot_error}")
+            
+            elif not page:
+                available_fixtures = list(kwargs.keys())
+                print(f"No page object found for screenshot. Available fixtures: {available_fixtures}")
+            
+            # Re-raise the original test exception
+            raise exc
+    
+    return wrapper
+</file>
+
+</source>
+</onefilellm_output>
