@@ -392,8 +392,9 @@ To regenerate output.xml:
 python onefilellm.py https://github.com/philmcneely/PythonPlaywright_Hudl
 ```
 
-You can also point it at the local repo, check out the docs online.
-
+You can also run the script against a local repository by providing the local path instead of a GitHub URL, for example:
+```python
+python onefilellm.py /path/to/your/local/repo
 ---
 
 
