@@ -47,9 +47,9 @@ from playwright.async_api import Page
 from PIL import Image, ImageChops
 
 # Directory configuration for visual regression files
-BASELINE_DIR = "visual_baselines"
-CURRENT_DIR = "visual_current" 
-DIFF_DIR = "visual_diffs"
+BASELINE_DIR = "test_artifacts/visual/visual_baselines"
+CURRENT_DIR = "test_artifacts/visual/visual_current"
+DIFF_DIR = "test_artifacts/visual/visual_diffs"
 
 # Ensure directories exist
 os.makedirs(BASELINE_DIR, exist_ok=True)

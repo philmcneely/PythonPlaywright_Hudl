@@ -4,10 +4,10 @@ Tests the visual regression fixture with intentional HTML modifications
 to verify threshold detection and diff generation.
 
 # Run all visual regression tests
-pytest test_visual_regression.py -v
+pytest tests/visual_regression/test_visual_regression.py -v 
 
 # Run just the failing test to see diff generation
-pytest test_visual_regression.py::test_homepage_visual_major_change_should_fail -v
+pytest tests/visual_regression/test_visual_regression.py::test_homepage_visual_major_change_should_fail -v
 
 """
 
@@ -307,15 +307,15 @@ async def test_cleanup_visual_files():
     This helps verify the fixture is working correctly.
     """
     # Check that directories exist
-    assert os.path.exists("visual_baselines"), "Baseline directory should exist"
-    assert os.path.exists("visual_current"), "Current directory should exist" 
-    assert os.path.exists("visual_diffs"), "Diff directory should exist"
-    
+    assert os.path.exists("test_artifacts/visual/visual_baselines"), "Baseline directory should exist"
+    assert os.path.exists("test_artifacts/visual/visual_current"), "Current directory should exist"
+    assert os.path.exists("test_artifacts/visual/visual_diffs"), "Diff directory should exist"
+
     # List files in each directory for debugging
-    baseline_files = os.listdir("visual_baselines") if os.path.exists("visual_baselines") else []
-    current_files = os.listdir("visual_current") if os.path.exists("visual_current") else []
-    diff_files = os.listdir("visual_diffs") if os.path.exists("visual_diffs") else []
-    
+    baseline_files = os.listdir("test_artifacts/visual/visual_baselines") if os.path.exists("test_artifacts/visual/visual_baselines") else []
+    current_files = os.listdir("test_artifacts/visual/visual_current") if os.path.exists("test_artifacts/visual/visual_current") else []
+    diff_files = os.listdir("test_artifacts/visual/visual_diffs") if os.path.exists("test_artifacts/visual/visual_diffs") else []
+
     print(f"\n📁 Visual regression files:")
     print(f"   Baselines: {baseline_files}")
     print(f"   Current: {current_files}")

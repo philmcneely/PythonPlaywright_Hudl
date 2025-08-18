@@ -16,7 +16,7 @@ Test Categories:
     ✓ Pagination and filtering
     ✓ Real-time data scenarios
 
-Run with: pytest test_api_mocking_fixed.py -v
+Run with: pytest tests/api/test_api_mocking.py -v
 """
 
 import pytest

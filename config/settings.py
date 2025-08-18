@@ -26,7 +26,7 @@ class Settings:
     VIDEO_ON_FAILURE: bool = os.getenv("VIDEO_ON_FAILURE", "true").lower() == "true"
     
     # Allure Configuration - not using atm
-    ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
+    ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "test_artifacts/allure/allure-results")
 
     DEBUG_MSG: bool = os.getenv("DEBUG_MSG", "false").lower() == "true" 
 
