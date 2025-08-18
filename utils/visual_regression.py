@@ -34,6 +34,7 @@ Dependencies:
     - pytest_asyncio: Async fixture support
     - PIL (Pillow): Image manipulation and comparison
     - numpy: Efficient array operations for pixel comparison
+    - opencv-python (cv2): Advanced diff visualization with highlighted regions
 
 Author: Generated for Playwright visual regression testing
 """
@@ -96,8 +97,9 @@ def compare_images(baseline_path, current_path, diff_path, tolerance=0.01):
         diff_array = np.array(diff)
         
         # Count pixels that have any difference (non-zero in any channel)
-        diff_pixels = np.count_nonzero(diff_array)
-        total_pixels = diff_array.size
+        # diff_array.shape is (height, width, channels)
+        diff_pixels = np.count_nonzero(np.any(diff_array, axis=2))
+        total_pixels = diff_array.shape[0] * diff_array.shape[1]
         
         # Calculate the ratio of different pixels
         diff_ratio = diff_pixels / total_pixels if total_pixels > 0 else 0
