@@ -96,7 +96,7 @@ class OllamaAIHealingService:
                 context["url"] = page.url  # <-- FIXED: no ()
                 context["title"] = await page.title()  # <-- Only title() is a coroutine
 
-                screenshot_dir = Path("screenshots")
+                screenshot_dir = Path("test_artifacts/allure/screenshots")
                 screenshot_dir.mkdir(exist_ok=True)
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 screenshot_path = screenshot_dir / f"{test_name}_{timestamp}_ai_healing.png"
@@ -402,7 +402,7 @@ class OllamaAIHealingService:
         Returns:
             None
         """
-        healing_dir = Path("ai_healing_reports")
+        healing_dir = Path("test_artifacts/ai/ai_healing_reports")
         healing_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -75,6 +75,15 @@ from utils.browserstack import is_browserstack_enabled
 from utils.debug import debug_print
 from playwright.async_api import async_playwright
 
+# Import the visual regression fixture
+from utils.visual_regression import visual_regression
+
+# Import the api mocking fixture
+from utils.network_mocking import api_mocker
+
+# Pytest fixtures (prevents auto-removal)
+pytest_fixtures = [visual_regression, api_mocker]
+
 # Thread-safe dictionary and lock for tracking test failure counts
 _ai_healing_fail_counts = defaultdict(int)
 _ai_healing_lock = threading.Lock()

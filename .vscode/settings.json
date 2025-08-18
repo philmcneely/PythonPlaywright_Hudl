@@ -8,5 +8,7 @@
         "source.unusedImports": true,
         "source.organizeImports": true // Optional: Also sorts imports on save
     },
-    "python.languageServer": "Pylance" // Ensure Pylance is the active language server
+    "python.languageServer": "Pylance", // Ensure Pylance is the active language server
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.includeFileSpecs": ["**/*.py"]
 }

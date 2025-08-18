@@ -84,10 +84,13 @@ pip install --upgrade pip
 pip install -r requirements_with_versions.txt
 ```
 
-Make sure your `requirements_with_versions.txt` includes `python-dotenv`:
+Make sure your `requirements_with_versions.txt` includes:
 
 ```
 python-dotenv
+opencv-python
+pillow
+numpy
 ```
 
 ---
@@ -154,7 +157,7 @@ ENV_FILE=.env.test pytest ...
 Run your tests with pytest. For example, to run smoke tests with Allure reporting, reruns and in parallel:
 
 ```sh
-pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 ```
 
 - Adjust the `-m smoke` marker or other pytest options as needed.
@@ -162,7 +165,7 @@ pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 
 You can also pass env vars on the commandline, for example if you want headed tests or a different browser.
 
 ```sh
-BROWSER=firefox HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+BROWSER=firefox HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 ```
 
 Adjust as needed.
@@ -172,7 +175,7 @@ Adjust as needed.
 ## 9. Generate the Allure Report
 
 ```sh
-allure generate allure-results -o allure-report --clean --single-file
+allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
 ```
 
 ---
@@ -182,18 +185,18 @@ allure generate allure-results -o allure-report --clean --single-file
 **macOS:**
 
 ```sh
-open allure-report/index.html
+open test_artifacts/allure/allure-report/index.html
 ```
 
 **Linux:**
 
 ```sh
-xdg-open allure-report/index.html
+xdg-open test_artifacts/allure/allure-report/index.html
 ```
 
 **Windows:**
 
-Open `allure-report\index.html` in your browser.
+Open `test_artifacts\allure\allure-report\index.html` in your browser.
 
 ---
 
@@ -203,8 +206,44 @@ Everything is already configured to run a smoke test, then if that passes it wil
 
 ---
 
+## 12. Visual Regression Testing
 
-## 12. AI Self healing
+- Baselines managed in `test_artifacts/visual/visual_baselines/`
+- Current run in `test_artifacts/visual/visual_current/`
+- Diffs (with OpenCV highlights) in `test_artifacts/visual/visual_diffs/`
+
+Example:
+
+```python
+@pytest.mark.asyncio
+async def test_homepage_visual(page, visual_regression):
+    await page.goto("https://example.com")
+    await visual_regression("homepage", tolerance=0.02)
+```
+
+Run:
+
+```sh
+pytest tests/visual/ -v
+```
+
+---
+
+## 13. API Mocking
+
+- Mock GET/POST/PUT/DELETE
+- Load from files
+- Handle slow responses
+
+Example:
+
+```python
+await api_mocker.mock_get("**/api/users", {"users": [{"id": 1}]})
+```
+
+---
+
+## 14. AI Self-Healing
 
 Install Ollama Python library
 
@@ -254,11 +293,11 @@ ollama run llava:7b "Hello, can you analyze test failures?"
 ```
 
 This is not configured on Github Actions due to needing a larger machine runner.
-Reports will be found in /ai_healing_reports
+Reports will be found in test_artifacts/ai/ai_healing_reports
 
 To see this in action, you can run a test specifically created to show it in action by running
 ```sh
-AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
+AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
 ```
 
 This is an example of commandline output
@@ -292,7 +331,7 @@ Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_t
 You can see some example reports and attempts at fixing the files in the example_ai_reports folder
 
 
-## 12. BrowserStack Integration
+## 15. BrowserStack Integration
 
 You can run your Playwright tests on real browsers in the cloud using [BrowserStack](https://www.browserstack.com/). This is useful for cross-browser and cross-OS testing without maintaining your own infrastructure.
 
@@ -335,7 +374,7 @@ When `BROWSERSTACK_ENABLED=false`, tests run locally as usual.
 Activate your virtual environment and run:
 
 ```sh
-BROWSERSTACK_ENABLED=true pytest --alluredir=allure-results
+BROWSERSTACK_ENABLED=true pytest --alluredir=test_artifacts/allure/allure-results
 ```
 
 You can also set the environment variable in your `.env.dev` file.
@@ -426,6 +465,42 @@ python onefilellm.py /path/to/your/local/repo
 - `config/` — Settings files here
 - `tests/` — Test files go here
 - `screenshots/` — Test screenshots
+
+## Directory Structure 📂
+
+```text
+.
+├── 📄 .env.dev, .env.test, .env.prod   — Environment variable files
+├── 📄 conftest.py                      — Config & fixtures
+├── 📄 pytest.ini                       — Pytest settings
+├── 📄 requirements_with_versions.txt   — Python deps
+│
+├── 📂 test_artifacts/                  — Test artifacts
+│   ├── 📂 visual/
+│   │   ├── 📂 example                  — Example visual regression results
+│   │   │   ├── 📂 visual_baselines     — Baseline screenshots
+│   │   │   ├── 📂 visual_current       — Current screenshots
+│   │   │   ├── 📂 visual_diffs         — Diff images
+│   │   ├── 📂 visual_baselines         — Baseline screenshots
+│   │   ├── 📂 visual_current           — Current screenshots
+│   │   ├── 📂 visual_diffs             — Diff images
+│   ├── 📂 ai/
+│   │   ├── 📂 ai_healing_reports       — AI healing reports
+│   │   ├── 📂 example_ai_reports/      — Example AI reports
+│   ├── 📂 allure/
+│   │   ├── 📂 allure-report            — Generated Allure HTML report
+│   │   ├── 📂 allure-results           — Raw test results
+│   │   ├── 📂 screenshots              — Test screenshots
+├── 📂 pages/                           — Page Object Models
+├── 📂 utils/                           — Utilities
+│   ├── 📄 visual_regression.py
+│   └── 📄 network_mocking.py
+├── 📂 data/                            — Test data
+├── 📂 config/                          — Settings
+├── 📂 tests/                           — Test files
+│   ├── 📂 visual/                      — Visual regression tests
+│   └── 📂 api/                         — API mocking tests
+```
 
 ---
 

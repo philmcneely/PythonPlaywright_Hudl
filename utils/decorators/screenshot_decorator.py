@@ -1,7 +1,7 @@
 import functools
-import allure
 import os
 from pathlib import Path
+import allure
 from datetime import datetime
 
 def screenshot_on_failure(func):
@@ -60,10 +60,11 @@ def screenshot_on_failure(func):
         except Exception as exc:
             # Test failed - attempt to capture screenshot if enabled
             if os.getenv("AI_HEALING_ENABLED", "false").lower() == "true":
-                print("AI healing is enabled; skipping regular screenshot capture.")
+                #print("AI healing is enabled; skipping regular screenshot capture.") #broken, always takes screenshot
+                pass
             elif page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
                 try:
-                    screenshot_dir = Path("screenshots")
+                    screenshot_dir = Path("test_artifacts/allure/screenshots")
                     screenshot_dir.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                     
