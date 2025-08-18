@@ -48,7 +48,7 @@ class DashboardPage:
     @property
     def user_initials(self):
         """Locator for the user initials in the avatar."""
-        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user")
+        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user").first
 
     @property
     def user_name(self):
