@@ -195,7 +195,7 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_chromium.html
+        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_chromium.html
 
       - name: Save Allure history (smoke-chromium)
         if: always()
@@ -259,7 +259,7 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_firefox.html
+        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_firefox.html
 
       - name: Save Allure history (smoke-firefox)
         if: always()
@@ -439,7 +439,7 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_chromium.html
+        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_chromium.html
 
       - name: Save Allure history (full-chromium)
         if: always()
@@ -524,7 +524,7 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_firefox.html
+        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_firefox.html
 
       - name: Save Allure history (full-firefox)
         if: always()
