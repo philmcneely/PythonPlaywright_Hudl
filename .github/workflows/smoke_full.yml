@@ -9,10 +9,13 @@ on:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
   pages: write
   id-token: write
+  issues: write
+  pull-requests: write
+
+env:
+  ALLURE_VERSION: "2.27.0"
 
 jobs:
   setup:
@@ -45,25 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
-
-      - name: Install Browserstack SDK
-        run: pip install browserstack-local
-
-      - name: Install Ollama CLI
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          pip install ollama
-
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
 
       - name: Cache Playwright browsers
         uses: actions/cache@v3
@@ -105,8 +89,6 @@ jobs:
       AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
-      OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
-      OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}
 
     steps:
       - uses: actions/checkout@v4
@@ -129,56 +111,45 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
-      - name: Install Browserstack SDK
-        run: pip install browserstack-local
-
-      - name: Install Ollama CLI
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          pip install ollama
-
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-
-      - name: Restore Playwright browsers
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
-          restore-keys: |
-            playwright-browsers-${{ runner.os }}-
-
       - name: Install Allure commandline
         run: |
           sudo apt-get update
           sudo apt-get install -y default-jre
-          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-          tar -xzf allure-2.27.0.tgz
-          sudo mv allure-2.27.0 /opt/allure
+          wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure-${ALLURE_VERSION}.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
           allure --version
 
-      - name: Restore Allure history (smoke-chromium)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history-smoke-chromium
-          path: .allure-history-smoke-chromium
-        continue-on-error: true
+      - name: Compute Pages paths (smoke)
+        id: paths
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_PATH="pr/${{ github.head_ref }}"
+          else
+            BASE_PATH=""
+          fi
+          echo "CHROMIUM_PATH=${BASE_PATH:+$BASE_PATH/}smoke/chromium" >> $GITHUB_OUTPUT
+          echo "FIREFOX_PATH=${BASE_PATH:+$BASE_PATH/}smoke/firefox" >> $GITHUB_OUTPUT
+
+      # ---------- Smoke Chromium ----------
+      - name: Restore history from gh-pages (smoke-chromium)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          git init ghp-read
+          cd ghp-read
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout gh-pages || echo "No gh-pages yet"
+          cd ..
+          if [ -d "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
 
       - name: Run chromium smoke tests
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
-          mkdir -p .allure-history-smoke-chromium
-          cp -r .allure-history-smoke-chromium/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
           browser=chromium
@@ -195,54 +166,44 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_chromium.html
 
-      - name: Save Allure history (smoke-chromium)
-        if: always()
-        run: |
-          mkdir -p .allure-history-smoke-chromium
-          if [ -d "test_artifacts/allure/allure-report/history" ]; then
-            cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-chromium/ 2>/dev/null || true
-          else
-            echo "No history generated yet" > .allure-history-smoke-chromium/.placeholder
-          fi
-
-      - name: Upload Allure history artifact (smoke-chromium)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history-smoke-chromium
-          path: .allure-history-smoke-chromium
-          if-no-files-found: ignore
-
-      - name: Upload test report & screenshots (smoke-chromium)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-chromium-report
-          path: test_artifacts/allure/allure-report
-
-      - name: Publish Smoke Report (Chromium) to GitHub Pages
-        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+      - name: Publish Smoke Report (Chromium) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: test_artifacts/allure/allure-report
-          destination_dir: smoke/chromium
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}
+          keep_files: true
 
-      - name: Restore Allure history (smoke-firefox)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history-smoke-firefox
-          path: .allure-history-smoke-firefox
-        continue-on-error: true
+      - name: Persist history to gh-pages (smoke-chromium)
+        run: |
+          git init ghp-write
+          cd ghp-write
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout -B gh-pages
+          mkdir -p "${{ steps.paths.outputs.CHROMIUM_PATH }}/history"
+          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.CHROMIUM_PATH }}/history/" 2>/dev/null || true
+          git add -A
+          git commit -m "Update Allure history (smoke-chromium) for ${GITHUB_SHA}" || true
+          git push origin gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------- Smoke Firefox ----------
+      - name: Restore history from gh-pages (smoke-firefox)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          if [ -d "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
 
       - name: Run firefox smoke tests
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
-          mkdir -p .allure-history-smoke-firefox
-          cp -r .allure-history-smoke-firefox/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
           browser=firefox
@@ -259,67 +220,26 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke_firefox.html
 
-      - name: Save Allure history (smoke-firefox)
-        if: always()
-        run: |
-          mkdir -p .allure-history-smoke-firefox
-          if [ -d "test_artifacts/allure/allure-report/history" ]; then
-            cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-firefox/ 2>/dev/null || true
-          else
-            echo "No history generated yet" > .allure-history-smoke-firefox/.placeholder
-          fi
-
-      - name: Upload Allure history artifact (smoke-firefox)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history-smoke-firefox
-          path: .allure-history-smoke-firefox
-          if-no-files-found: ignore
-
-      - name: Upload test report & screenshots (smoke-firefox)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: smoke-firefox-report
-          path: test_artifacts/allure/allure-report
-
-      - name: Publish Smoke Report (Firefox) to GitHub Pages
-        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+      - name: Publish Smoke Report (Firefox) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: test_artifacts/allure/allure-report
-          destination_dir: smoke/firefox
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}
+          keep_files: true
 
-      # Some kind of GHA error runnign webkit, defer for now - common fixes didnt work
-      # - name: Run webkit smoke tests
-      #   run: |
-      #     mkdir -p test_artifacts/allure/allure-report
-      #     mkdir -p test_artifacts/allure/allure-results
-      #     mkdir -p test_artifacts/allure/screenshots
-      #     BROWSER=webkit HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
-
-      - name: Comment PR with test summary
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All smoke tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some smoke tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            })
+      - name: Persist history to gh-pages (smoke-firefox)
+        run: |
+          cd ghp-write
+          git pull
+          mkdir -p "${{ steps.paths.outputs.FIREFOX_PATH }}/history"
+          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.FIREFOX_PATH }}/history/" 2>/dev/null || true
+          git add -A
+          git commit -m "Update Allure history (smoke-firefox) for ${GITHUB_SHA}" || true
+          git push origin gh-pages
         env:
-          JOB_STATUS: ${{ job.status }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   full:
     runs-on: ubuntu-latest
@@ -349,8 +269,6 @@ jobs:
       AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
-      OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
-      OLLAMA_HOST: ${{ secrets.OLLAMA_HOST }}
 
     steps:
       - uses: actions/checkout@v4
@@ -373,56 +291,45 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements_with_versions.txt
 
-      - name: Install Browserstack SDK
-        run: pip install browserstack-local
-
-      - name: Install Ollama CLI
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          pip install ollama
-
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-
-      - name: Restore Playwright browsers
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
-          restore-keys: |
-            playwright-browsers-${{ runner.os }}-
-
       - name: Install Allure commandline
         run: |
           sudo apt-get update
           sudo apt-get install -y default-jre
-          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-          tar -xzf allure-2.27.0.tgz
-          sudo mv allure-2.27.0 /opt/allure
+          wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure-${ALLURE_VERSION}.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
           allure --version
 
-      - name: Restore Allure history (full-chromium)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history-full-chromium
-          path: .allure-history-full-chromium
-        continue-on-error: true
+      - name: Compute Pages paths (full)
+        id: paths
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_PATH="pr/${{ github.head_ref }}"
+          else
+            BASE_PATH=""
+          fi
+          echo "CHROMIUM_PATH=${BASE_PATH:+$BASE_PATH/}full/chromium" >> $GITHUB_OUTPUT
+          echo "FIREFOX_PATH=${BASE_PATH:+$BASE_PATH/}full/firefox" >> $GITHUB_OUTPUT
+
+      # ---------- Full Chromium ----------
+      - name: Restore history from gh-pages (full-chromium)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          git init ghp-read
+          cd ghp-read
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout gh-pages || echo "No gh-pages yet"
+          cd ..
+          if [ -d "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
 
       - name: Run chromium full test suite
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
-          mkdir -p .allure-history-full-chromium
-          cp -r .allure-history-full-chromium/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
           browser=chromium
@@ -433,81 +340,50 @@ jobs:
           runId=$GITHUB_RUN_ID
           testSuite=full
           EOF
-          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m  "login and not (smoke or danger)" -n auto
+          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m "login and not (smoke or danger)" -n auto
 
       - name: Generate Test Results (full-chromium)
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_chromium.html
 
-      - name: Save Allure history (full-chromium)
-        if: always()
-        run: |
-          mkdir -p .allure-history-full-chromium
-          if [ -d "test_artifacts/allure/allure-report/history" ]; then
-            cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-chromium/ 2>/dev/null || true
-          else
-            echo "No history generated yet" > .allure-history-full-chromium/.placeholder
-          fi
-
-      - name: Upload Allure history artifact (full-chromium)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history-full-chromium
-          path: .allure-history-full-chromium
-          if-no-files-found: ignore
-
-      - name: Upload test report & screenshots (full-chromium)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-chromium-report
-          path: test_artifacts/allure/allure-report
-
-      - name: Publish Full Report (Chromium) to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+      - name: Publish Full Report (Chromium) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: test_artifacts/allure/allure-report
-          destination_dir: full/chromium
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}
+          keep_files: true
 
-      - name: Comment PR with test summary (full-chromium)
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All chromium login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some chromium login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            })
+      - name: Persist history to gh-pages (full-chromium)
+        run: |
+          git init ghp-write
+          cd ghp-write
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout -B gh-pages
+          mkdir -p "${{ steps.paths.outputs.CHROMIUM_PATH }}/history"
+          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.CHROMIUM_PATH }}/history/" 2>/dev/null || true
+          git add -A
+          git commit -m "Update Allure history (full-chromium) for ${GITHUB_SHA}" || true
+          git push origin gh-pages
         env:
-          JOB_STATUS: ${{ job.status }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Restore Allure history (full-firefox)
-        uses: actions/download-artifact@v4
-        with:
-          name: allure-history-full-firefox
-          path: .allure-history-full-firefox
-        continue-on-error: true
+      # ---------- Full Firefox ----------
+      - name: Restore history from gh-pages (full-firefox)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          if [ -d "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
 
-      # Originally was going to run just compatibility tests, but decided for now,
-      # with small suite to run full.  this should be broken out to a seperate job likely in future
       - name: Run firefox full tests
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
-          mkdir -p .allure-history-full-firefox
-          cp -r .allure-history-full-firefox/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
           browser=firefox
@@ -524,65 +400,31 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-        #  mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_firefox.html
 
-      - name: Save Allure history (full-firefox)
-        if: always()
-        run: |
-          mkdir -p .allure-history-full-firefox
-          if [ -d "test_artifacts/allure/allure-report/history" ]; then
-            cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-firefox/ 2>/dev/null || true
-          else
-            echo "No history generated yet" > .allure-history-full-firefox/.placeholder
-          fi
-
-      - name: Upload Allure history artifact (full-firefox)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: allure-history-full-firefox
-          path: .allure-history-full-firefox
-          if-no-files-found: ignore
-
-      - name: Upload test report & screenshots (full-firefox)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: full-firefox-report
-          path: test_artifacts/allure/allure-report
-
-      - name: Publish Full Report (Firefox) to GitHub Pages
-        if: github.event_name == 'pull_request' && github.base_ref == 'main'
+      - name: Publish Full Report (Firefox) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: test_artifacts/allure/allure-report
-          destination_dir: full/firefox
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}
+          keep_files: true
 
-      - name: Comment PR with test summary (full-firefox)
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All firefox login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some firefox login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            })
+      - name: Persist history to gh-pages (full-firefox)
+        run: |
+          cd ghp-write
+          git pull
+          mkdir -p "${{ steps.paths.outputs.FIREFOX_PATH }}/history"
+          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.FIREFOX_PATH }}/history/" 2>/dev/null || true
+          git add -A
+          git commit -m "Update Allure history (full-firefox) for ${GITHUB_SHA}" || true
+          git push origin gh-pages
         env:
-          JOB_STATUS: ${{ job.status }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Optional: Create a dashboard index page
+  # Optional dashboard for quick links
   dashboard:
     runs-on: ubuntu-latest
     needs: [smoke, full]
-    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     steps:
       - uses: actions/checkout@v4
 
@@ -593,6 +435,7 @@ jobs:
           <!DOCTYPE html>
           <html>
           <head>
+              <meta charset="utf-8" />
               <title>Test Execution Dashboard</title>
               <style>
                   body { font-family: Arial, sans-serif; margin: 40px; }
@@ -605,32 +448,29 @@ jobs:
           </head>
           <body>
               <h1>🚀 Test Execution Dashboard</h1>
-              <p>Latest test results from <strong>${GITHUB_SHA:0:7}</strong> on <strong>${GITHUB_REF_NAME}</strong></p>
+              <p>Links to the latest published reports on GitHub Pages. PR runs appear under pr/&lt;branch&gt;.</p>
 
               <div class="dashboard">
                   <div class="card">
                       <h3>🔥 Smoke Tests</h3>
-                      <a href="smoke/chromium/">Chromium Smoke Tests</a>
-                      <a href="smoke/firefox/">Firefox Smoke Tests</a>
+                      <a href="smoke/chromium/">Main: Chromium Smoke</a>
+                      <a href="smoke/firefox/">Main: Firefox Smoke</a>
                   </div>
-
                   <div class="card">
                       <h3>🎯 Full Test Suite</h3>
-                      <a href="full/chromium/">Chromium Full Tests</a>
-                      <a href="full/firefox/">Firefox Full Tests</a>
+                      <a href="full/chromium/">Main: Chromium Full</a>
+                      <a href="full/firefox/">Main: Firefox Full</a>
                   </div>
               </div>
-
-              <hr style="margin: 40px 0;">
+              <hr />
               <p><small>Updated: $(date)</small></p>
           </body>
           </html>
           EOF
 
-      - name: Publish Dashboard Index to GitHub Pages
+      - name: Publish Dashboard to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dashboard
           keep_files: true
-
