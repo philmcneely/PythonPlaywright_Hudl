@@ -223,7 +223,7 @@ jobs:
           path: test_artifacts/allure/allure-report
 
       - name: Publish Smoke Report (Chromium) to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -287,7 +287,7 @@ jobs:
           path: test_artifacts/allure/allure-report
 
       - name: Publish Smoke Report (Firefox) to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -552,7 +552,7 @@ jobs:
           path: test_artifacts/allure/allure-report
 
       - name: Publish Full Report (Firefox) to GitHub Pages
-        if: github.ref == 'refs/heads/main'
+        if: github.event_name == 'pull_request' && github.base_ref == 'main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
