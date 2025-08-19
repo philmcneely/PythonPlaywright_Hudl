@@ -9,6 +9,8 @@ pytest tests/visual_regression/test_visual_regression.py -v
 # Run just the failing test to see diff generation
 pytest tests/visual_regression/test_visual_regression.py::test_homepage_visual_major_change_should_fail -v
 
+Author: PMAC
+Date: [2025-08-18]
 """
 
 import pytest

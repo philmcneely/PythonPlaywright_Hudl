@@ -410,6 +410,16 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 
 ---
 
+## 16. Performance measuring
+
+Please see docs in tests/performance/PERFORMANCE_TESTING.md
+
+```bash
+PERF_MONITOR=1 AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=1 HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m performance
+```
+
+---
+
 **Regenerate Docs for LLMs:**  
 This project makes use of OneFileLLM: https://github.com/jimmc414/onefilellm
 
