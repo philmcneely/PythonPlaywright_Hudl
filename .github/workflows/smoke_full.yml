@@ -102,7 +102,7 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
       OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
@@ -177,6 +177,7 @@ jobs:
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
+          mkdir -p .allure-history-smoke-chromium
           cp -r .allure-history-smoke-chromium/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
@@ -200,7 +201,11 @@ jobs:
         if: always()
         run: |
           mkdir -p .allure-history-smoke-chromium
-          cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-chromium/ 2>/dev/null || true
+          if [ -d "test_artifacts/allure/allure-report/history" ]; then
+            cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-chromium/ 2>/dev/null || true
+          else
+            echo "No history generated yet" > .allure-history-smoke-chromium/.placeholder
+          fi
 
       - name: Upload Allure history artifact (smoke-chromium)
         if: always()
@@ -208,6 +213,7 @@ jobs:
         with:
           name: allure-history-smoke-chromium
           path: .allure-history-smoke-chromium
+          if-no-files-found: ignore
 
       - name: Upload test report & screenshots (smoke-chromium)
         if: always()
@@ -235,6 +241,7 @@ jobs:
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
+          mkdir -p .allure-history-smoke-firefox
           cp -r .allure-history-smoke-firefox/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
@@ -258,7 +265,11 @@ jobs:
         if: always()
         run: |
           mkdir -p .allure-history-smoke-firefox
-          cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-firefox/ 2>/dev/null || true
+          if [ -d "test_artifacts/allure/allure-report/history" ]; then
+            cp -r test_artifacts/allure/allure-report/history/* .allure-history-smoke-firefox/ 2>/dev/null || true
+          else
+            echo "No history generated yet" > .allure-history-smoke-firefox/.placeholder
+          fi
 
       - name: Upload Allure history artifact (smoke-firefox)
         if: always()
@@ -266,6 +277,7 @@ jobs:
         with:
           name: allure-history-smoke-firefox
           path: .allure-history-smoke-firefox
+          if-no-files-found: ignore
 
       - name: Upload test report & screenshots (smoke-firefox)
         if: always()
@@ -334,7 +346,7 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
       OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
@@ -409,6 +421,7 @@ jobs:
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
+          mkdir -p .allure-history-full-chromium
           cp -r .allure-history-full-chromium/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
@@ -432,7 +445,11 @@ jobs:
         if: always()
         run: |
           mkdir -p .allure-history-full-chromium
-          cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-chromium/ 2>/dev/null || true
+          if [ -d "test_artifacts/allure/allure-report/history" ]; then
+            cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-chromium/ 2>/dev/null || true
+          else
+            echo "No history generated yet" > .allure-history-full-chromium/.placeholder
+          fi
 
       - name: Upload Allure history artifact (full-chromium)
         if: always()
@@ -440,6 +457,7 @@ jobs:
         with:
           name: allure-history-full-chromium
           path: .allure-history-full-chromium
+          if-no-files-found: ignore
 
       - name: Upload test report & screenshots (full-chromium)
         if: always()
@@ -482,12 +500,13 @@ jobs:
           path: .allure-history-full-firefox
         continue-on-error: true
 
-      # Originally was going to run just compatibility tests, but decided for now, 
+      # Originally was going to run just compatibility tests, but decided for now,
       # with small suite to run full.  this should be broken out to a seperate job likely in future
       - name: Run firefox full tests
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
+          mkdir -p .allure-history-full-firefox
           cp -r .allure-history-full-firefox/* test_artifacts/allure/allure-results/history/ 2>/dev/null || true
           mkdir -p test_artifacts/allure/screenshots
           cat > test_artifacts/allure/allure-results/environment.properties <<EOF
@@ -511,7 +530,11 @@ jobs:
         if: always()
         run: |
           mkdir -p .allure-history-full-firefox
-          cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-firefox/ 2>/dev/null || true
+          if [ -d "test_artifacts/allure/allure-report/history" ]; then
+            cp -r test_artifacts/allure/allure-report/history/* .allure-history-full-firefox/ 2>/dev/null || true
+          else
+            echo "No history generated yet" > .allure-history-full-firefox/.placeholder
+          fi
 
       - name: Upload Allure history artifact (full-firefox)
         if: always()
@@ -519,6 +542,7 @@ jobs:
         with:
           name: allure-history-full-firefox
           path: .allure-history-full-firefox
+          if-no-files-found: ignore
 
       - name: Upload test report & screenshots (full-firefox)
         if: always()
