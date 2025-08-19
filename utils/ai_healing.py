@@ -38,6 +38,7 @@ import subprocess
 import time
 import shutil
 import ollama
+from config.artifact_paths import AI_HEALING_REPORT_DIR, SCREENSHOT_DIR
 
 from utils.debug import debug_print
 import re
@@ -78,6 +79,20 @@ class OllamaAIHealingService:
         self.context_window = int(os.getenv("AI_HEALING_CONTEXT_WINDOW", "5000"))
         self.client = ollama.Client(host=self.ollama_host)
 
+    # async def capture_failure_context(self, page, error, test_name, test_function):
+    #     """
+    #     Capture all context needed for AI analysis including URL, title, screenshot, and DOM.
+    #     """
+    #     # Use the centralized utility function
+    #     context, screenshot_path = await capture_failure_context(
+    #         page=page,
+    #         error=error,
+    #         test_name=test_name,
+    #         test_function=test_function,
+    #         context_window=self.context_window
+    #     )
+    #     return context, screenshot_path
+
     async def capture_failure_context(self, page, error, test_name, test_function):
         """
         Capture all context needed for AI analysis including URL, title, screenshot, and DOM.
@@ -96,10 +111,11 @@ class OllamaAIHealingService:
                 context["url"] = page.url  # <-- FIXED: no ()
                 context["title"] = await page.title()  # <-- Only title() is a coroutine
 
-                screenshot_dir = Path("test_artifacts/allure/screenshots")
+                screenshot_dir = SCREENSHOT_DIR
                 screenshot_dir.mkdir(exist_ok=True)
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 screenshot_path = screenshot_dir / f"{test_name}_{timestamp}_ai_healing.png"
+                
                 await page.screenshot(path=str(screenshot_path))
                 context["screenshot_path"] = str(screenshot_path)
                 dom_content = await page.content()
@@ -402,7 +418,7 @@ class OllamaAIHealingService:
         Returns:
             None
         """
-        healing_dir = Path("test_artifacts/ai/ai_healing_reports")
+        healing_dir = AI_HEALING_REPORT_DIR
         healing_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
