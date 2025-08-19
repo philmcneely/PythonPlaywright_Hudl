@@ -539,4 +539,4 @@ pytest tests/api/test_api_mocking.py -v
 #check browserstack
 BROWSERSTACK_ENABLED=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke
 
-```
+``` 
