@@ -224,21 +224,12 @@ jobs:
           keep_files: true
 
       - name: Persist history to gh-pages (smoke-chromium)
-        run: |
-          git init ghp-write
-          cd ghp-write
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin gh-pages || true
-          git checkout -B gh-pages
-          mkdir -p "${{ steps.paths.outputs.CHROMIUM_PATH }}/history"
-          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.CHROMIUM_PATH }}/history/" 2>/dev/null || true
-          git add -A
-          git commit -m "Update Allure history (smoke-chromium) for ${GITHUB_SHA}" || true
-          git push origin gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}/history
+          keep_files: true
 
       # ---------- Smoke Firefox ----------
       - name: Restore history from gh-pages (smoke-firefox)
@@ -278,16 +269,12 @@ jobs:
           keep_files: true
 
       - name: Persist history to gh-pages (smoke-firefox)
-        run: |
-          cd ghp-write
-          git pull
-          mkdir -p "${{ steps.paths.outputs.FIREFOX_PATH }}/history"
-          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.FIREFOX_PATH }}/history/" 2>/dev/null || true
-          git add -A
-          git commit -m "Update Allure history (smoke-firefox) for ${GITHUB_SHA}" || true
-          git push origin gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
+          keep_files: true
 
   full:
     runs-on: ubuntu-latest
@@ -433,21 +420,12 @@ jobs:
           keep_files: true
 
       - name: Persist history to gh-pages (full-chromium)
-        run: |
-          git init ghp-write
-          cd ghp-write
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git fetch --depth=1 origin gh-pages || true
-          git checkout -B gh-pages
-          mkdir -p "${{ steps.paths.outputs.CHROMIUM_PATH }}/history"
-          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.CHROMIUM_PATH }}/history/" 2>/dev/null || true
-          git add -A
-          git commit -m "Update Allure history (full-chromium) for ${GITHUB_SHA}" || true
-          git push origin gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}/history
+          keep_files: true
 
       # ---------- Full Firefox ----------
       - name: Restore history from gh-pages (full-firefox)
@@ -487,16 +465,12 @@ jobs:
           keep_files: true
 
       - name: Persist history to gh-pages (full-firefox)
-        run: |
-          cd ghp-write
-          git pull
-          mkdir -p "${{ steps.paths.outputs.FIREFOX_PATH }}/history"
-          cp -r ../test_artifacts/allure/allure-report/history/* "${{ steps.paths.outputs.FIREFOX_PATH }}/history/" 2>/dev/null || true
-          git add -A
-          git commit -m "Update Allure history (full-firefox) for ${GITHUB_SHA}" || true
-          git push origin gh-pages
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
+          keep_files: true
 
   # Optional: Create a dashboard index page
   dashboard:
