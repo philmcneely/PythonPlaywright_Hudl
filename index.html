@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Execution Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        .card h3 { margin-top: 0; }
+        .card a { display: block; margin: 10px 0; padding: 10px; background: #f5f5f5; text-decoration: none; border-radius: 4px; }
+        .card a:hover { background: #e5e5e5; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Test Execution Dashboard</h1>
+    <p>Latest test results from <strong>878a996</strong> on <strong>10/merge</strong></p>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>🔥 Smoke Tests</h3>
+            <a href="smoke/chromium/">Chromium Smoke Tests</a>
+            <a href="smoke/firefox/">Firefox Smoke Tests</a>
+        </div>
+
+        <div class="card">
+            <h3>🎯 Full Test Suite</h3>
+            <a href="full/chromium/">Chromium Full Tests</a>
+            <a href="full/firefox/">Firefox Full Tests</a>
+        </div>
+    </div>
+
+    <hr style="margin: 40px 0;">
+    <p><small>Updated: Tue Aug 19 21:41:01 UTC 2025</small></p>
+</body>
+</html>
