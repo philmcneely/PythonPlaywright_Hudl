@@ -57,17 +57,6 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
 
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-
       - name: Cache Playwright browsers
         uses: actions/cache@v3
         id: cache-browsers
@@ -139,17 +128,6 @@ jobs:
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
-
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
 
       - name: Restore Playwright browsers
         uses: actions/cache@v3
@@ -289,72 +267,14 @@ jobs:
           destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
           keep_files: true
 
-      - name: Write dashboard status file
-        if: github.event_name == 'pull_request'
-        run: |
-          STATUS="FAIL"
-          if [ "${{ job.status }}" = "success" ]; then
-            STATUS="PASS"
-          fi
-          mkdir -p pr_dashboard
-          echo "$STATUS" > pr_dashboard/status.txt
+      # ---------- PR Dashboard Generation ----------
+      - name: Clean pr_dashboard
+        run: rm -rf pr_dashboard && mkdir pr_dashboard
 
-      - name: Comment PR with Smoke report links
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const branch = context.payload.pull_request.head.ref;
-            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
-            const smokeStatus = `${{ toJSON(steps.smoke_status.outputs.label) }}`;
-            const body = [
-              `✅ Smoke reports published:`,
-              `- Chromium: ${baseUrl}/smoke/chromium/`,
-              `- Firefox: ${baseUrl}/smoke/firefox/`,
-              ``,
-              `Status: ${smokeStatus}`,
-              ``,
-              `📊 PR Dashboard: ${baseUrl}/dashboard/`
-            ].join('\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
-
-      - name: Export Smoke URLs
-        id: smoke_urls
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
-          else
-            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
-          fi
-          echo "chromium_url=$BASE/smoke/chromium/" >> $GITHUB_OUTPUT
-          echo "firefox_url=$BASE/smoke/firefox/" >> $GITHUB_OUTPUT
-
-      - name: Smoke report links (summary)
-        if: always()
-        run: |
-          echo "Chromium Smoke: ${{ steps.smoke_urls.outputs.chromium_url }}"
-          echo "Firefox Smoke:  ${{ steps.smoke_urls.outputs.firefox_url }}"
-          echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}"
-          {
-            echo "### Smoke report links";
-            echo "";
-            echo "- Chromium: ${{ steps.smoke_urls.outputs.chromium_url }}";
-            echo "- Firefox:  ${{ steps.smoke_urls.outputs.firefox_url }}";
-            echo "";
-            echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}";
-          } >> $GITHUB_STEP_SUMMARY
-
-      - name: Build PR mini-dashboard
-        if: github.event_name == 'pull_request'
+      - name: Generate dashboard HTML
         run: |
           BRANCH="${{ github.head_ref }}"
           BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
-          mkdir -p pr_dashboard
           cat > pr_dashboard/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="en">
@@ -426,6 +346,16 @@ jobs:
           sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
           sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
 
+      - name: Write dashboard status file
+        if: github.event_name == 'pull_request'
+        run: |
+          STATUS="FAIL"
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="PASS"
+          fi
+          echo "$STATUS" > pr_dashboard/status.txt
+          echo "${GITHUB_SHA}" > pr_dashboard/sha.txt
+
       - name: Publish PR mini-dashboard
         if: github.event_name == 'pull_request'
         uses: peaceiris/actions-gh-pages@v3
@@ -434,6 +364,56 @@ jobs:
           publish_dir: pr_dashboard
           destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
           keep_files: true
+
+      - name: Comment PR with Smoke report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const smokeStatus = `${{ toJSON(steps.smoke_status.outputs.label) }}`;
+            const body = [
+              `✅ Smoke reports published:`,
+              `- Chromium: ${baseUrl}/smoke/chromium/`,
+              `- Firefox: ${baseUrl}/smoke/firefox/`,
+              ``,
+              `Status: ${smokeStatus}`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/${{ github.sha }}/`
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Export Smoke URLs
+        id: smoke_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/smoke/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/smoke/firefox/" >> $GITHUB_OUTPUT
+
+      - name: Smoke report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Smoke: ${{ steps.smoke_urls.outputs.chromium_url }}"
+          echo "Firefox Smoke:  ${{ steps.smoke_urls.outputs.firefox_url }}"
+          echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}"
+          {
+            echo "### Smoke report links";
+            echo "";
+            echo "- Chromium: ${{ steps.smoke_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.smoke_urls.outputs.firefox_url }}";
+            echo "";
+            echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}";
+          } >> $GITHUB_STEP_SUMMARY
 
   full:
     runs-on: ubuntu-latest
@@ -498,17 +478,6 @@ jobs:
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
-
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
 
       - name: Restore Playwright browsers
         uses: actions/cache@v3
@@ -575,14 +544,6 @@ jobs:
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
 
-      - name: Debug list Full Chromium report dir
-        if: always()
-        run: |
-          echo "Listing allure-results:"
-          ls -la test_artifacts/allure/allure-results || true
-          echo "Listing allure-report:"
-          ls -la test_artifacts/allure/allure-report || true
-
       - name: Publish Full Report (Chromium) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
@@ -644,90 +605,14 @@ jobs:
           destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
           keep_files: true
 
-      - name: Compute Full Status
-        if: always()
-        id: full_status
-        run: |
-          if [ "${{ steps.run_full.outcome }}" = "success" ]; then
-            echo "label=✅ PASS" >> $GITHUB_OUTPUT
-            echo "emoji=✅" >> $GITHUB_OUTPUT
-          else
-            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
-            echo "emoji=❌" >> $GITHUB_OUTPUT
-          fi
+      # ---------- PR Dashboard Generation ----------
+      - name: Clean pr_dashboard
+        run: rm -rf pr_dashboard && mkdir pr_dashboard
 
-      - name: Write dashboard status file
-        if: github.event_name == 'pull_request'
-        run: |
-          STATUS="FAIL"
-          if [ "${{ job.status }}" = "success" ]; then
-            STATUS="PASS"
-          fi
-          mkdir -p pr_dashboard
-          echo "$STATUS" > pr_dashboard/status.txt
-
-      - name: Comment PR with Full report links
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const branch = context.payload.pull_request.head.ref;
-            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
-            const fullStatus = `${{ toJSON(steps.full_status.outputs.label) }}`;
-            const body = [
-              `📊 Full reports published:`,
-              `- Chromium: ${baseUrl}/full/chromium/`,
-              `- Firefox: ${baseUrl}/full/firefox/`,
-              ``,
-              `Status: ${fullStatus}`,
-              ``,
-              `📊 PR Dashboard: ${baseUrl}/dashboard/`
-            ].join('\n');
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
-
-      - name: Export Full URLs
-        id: full_urls
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
-          else
-            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
-          fi
-          echo "chromium_url=$BASE/full/chromium/" >> $GITHUB_OUTPUT
-          echo "firefox_url=$BASE/full/firefox/" >> $GITHUB_OUTPUT
-          echo "dashboard_url=https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/" >> $GITHUB_OUTPUT
-
-      - name: Full report links (summary)
-        if: always()
-        run: |
-          echo "Chromium Full: ${{ steps.full_urls.outputs.chromium_url }}"
-          echo "Firefox Full:  ${{ steps.full_urls.outputs.firefox_url }}"
-          echo "Full Status: ${{ steps.full_status.outputs.label }}"
-          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
-          {
-            echo "### Full report links";
-            echo "";
-            echo "- Chromium: ${{ steps.full_urls.outputs.chromium_url }}";
-            echo "- Firefox:  ${{ steps.full_urls.outputs.firefox_url }}";
-            echo "";
-            echo "Full Status: ${{ steps.full_status.outputs.label }}";
-            echo "";
-            echo "### Main Dashboard";
-            echo "";
-            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
-          } >> $GITHUB_STEP_SUMMARY
-
-      - name: Build PR mini-dashboard (full job)
-        if: github.event_name == 'pull_request'
+      - name: Generate dashboard HTML
         run: |
           BRANCH="${{ github.head_ref }}"
           BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
-          mkdir -p pr_dashboard
           cat > pr_dashboard/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="en">
@@ -799,6 +684,16 @@ jobs:
           sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
           sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
 
+      - name: Write dashboard status file
+        if: github.event_name == 'pull_request'
+        run: |
+          STATUS="FAIL"
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="PASS"
+          fi
+          echo "$STATUS" > pr_dashboard/status.txt
+          echo "${GITHUB_SHA}" > pr_dashboard/sha.txt
+
       - name: Publish PR mini-dashboard
         if: github.event_name == 'pull_request'
         uses: peaceiris/actions-gh-pages@v3
@@ -808,7 +703,74 @@ jobs:
           destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
           keep_files: true
 
-  # Optional: Create a dashboard index page
+      - name: Compute Full Status
+        if: always()
+        id: full_status
+        run: |
+          if [ "${{ steps.run_full.outcome }}" = "success" ]; then
+            echo "label=✅ PASS" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment PR with Full report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const fullStatus = `${{ toJSON(steps.full_status.outputs.label) }}`;
+            const body = [
+              `📊 Full reports published:`,
+              `- Chromium: ${baseUrl}/full/chromium/`,
+              `- Firefox: ${baseUrl}/full/firefox/`,
+              ``,
+              `Status: ${fullStatus}`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/${{ github.sha }}/`
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Export Full URLs
+        id: full_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/full/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/full/firefox/" >> $GITHUB_OUTPUT
+          echo "dashboard_url=https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/" >> $GITHUB_OUTPUT
+
+      - name: Full report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Full: ${{ steps.full_urls.outputs.chromium_url }}"
+          echo "Firefox Full:  ${{ steps.full_urls.outputs.firefox_url }}"
+          echo "Full Status: ${{ steps.full_status.outputs.label }}"
+          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
+          {
+            echo "### Full report links";
+            echo "";
+            echo "- Chromium: ${{ steps.full_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.full_urls.outputs.firefox_url }}";
+            echo "";
+            echo "Full Status: ${{ steps.full_status.outputs.label }}";
+            echo "";
+            echo "### Main Dashboard";
+            echo "";
+            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+          } >> $GITHUB_STEP_SUMMARY
+
   dashboard:
     runs-on: ubuntu-latest
     needs: [smoke, full]
