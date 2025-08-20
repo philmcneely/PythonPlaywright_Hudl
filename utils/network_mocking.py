@@ -34,7 +34,8 @@ Dependencies:
     - json: JSON data handling
     - pathlib: File path operations
 
-Author: Generated for Playwright network mocking
+Author: PMAC
+Date: [2025-08-18]
 """
 
 import json

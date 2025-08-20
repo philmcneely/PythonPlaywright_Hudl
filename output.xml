@@ -75,7 +75,9 @@ BROWSERSTACK_ENABLED=false
         "source.unusedImports": true,
         "source.organizeImports": true // Optional: Also sorts imports on save
     },
-    "python.languageServer": "Pylance" // Ensure Pylance is the active language server
+    "python.languageServer": "Pylance", // Ensure Pylance is the active language server
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.includeFileSpecs": ["**/*.py"]
 }
 
 </file>
@@ -167,10 +169,13 @@ pip install --upgrade pip
 pip install -r requirements_with_versions.txt
 ```
 
-Make sure your `requirements_with_versions.txt` includes `python-dotenv`:
+Make sure your `requirements_with_versions.txt` includes:
 
 ```
 python-dotenv
+opencv-python
+pillow
+numpy
 ```
 
 ---
@@ -237,7 +242,7 @@ ENV_FILE=.env.test pytest ...
 Run your tests with pytest. For example, to run smoke tests with Allure reporting, reruns and in parallel:
 
 ```sh
-pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 ```
 
 - Adjust the `-m smoke` marker or other pytest options as needed.
@@ -245,7 +250,7 @@ pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 
 You can also pass env vars on the commandline, for example if you want headed tests or a different browser.
 
 ```sh
-BROWSER=firefox HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+BROWSER=firefox HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 ```
 
 Adjust as needed.
@@ -255,7 +260,7 @@ Adjust as needed.
 ## 9. Generate the Allure Report
 
 ```sh
-allure generate allure-results -o allure-report --clean --single-file
+allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
 ```
 
 ---
@@ -265,18 +270,18 @@ allure generate allure-results -o allure-report --clean --single-file
 **macOS:**
 
 ```sh
-open allure-report/index.html
+open test_artifacts/allure/allure-report/index.html
 ```
 
 **Linux:**
 
 ```sh
-xdg-open allure-report/index.html
+xdg-open test_artifacts/allure/allure-report/index.html
 ```
 
 **Windows:**
 
-Open `allure-report\index.html` in your browser.
+Open `test_artifacts\allure\allure-report\index.html` in your browser.
 
 ---
 
@@ -286,8 +291,44 @@ Everything is already configured to run a smoke test, then if that passes it wil
 
 ---
 
+## 12. Visual Regression Testing
 
-## 12. AI Self healing
+- Baselines managed in `test_artifacts/visual/visual_baselines/`
+- Current run in `test_artifacts/visual/visual_current/`
+- Diffs (with OpenCV highlights) in `test_artifacts/visual/visual_diffs/`
+
+Example:
+
+```python
+@pytest.mark.asyncio
+async def test_homepage_visual(page, visual_regression):
+    await page.goto("https://example.com")
+    await visual_regression("homepage", tolerance=0.02)
+```
+
+Run:
+
+```sh
+pytest tests/visual/ -v
+```
+
+---
+
+## 13. API Mocking
+
+- Mock GET/POST/PUT/DELETE
+- Load from files
+- Handle slow responses
+
+Example:
+
+```python
+await api_mocker.mock_get("**/api/users", {"users": [{"id": 1}]})
+```
+
+---
+
+## 14. AI Self-Healing
 
 Install Ollama Python library
 
@@ -337,11 +378,11 @@ ollama run llava:7b "Hello, can you analyze test failures?"
 ```
 
 This is not configured on Github Actions due to needing a larger machine runner.
-Reports will be found in /ai_healing_reports
+Reports will be found in test_artifacts/ai/ai_healing_reports
 
 To see this in action, you can run a test specifically created to show it in action by running
 ```sh
-AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
+AI_HEALING_ENABLED=true ENV=dev SKIP_SCREENSHOTS=0 HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing
 ```
 
 This is an example of commandline output
@@ -375,7 +416,7 @@ Screenshot saved and attached to Allure: screenshots/tests_login_test_login.py_t
 You can see some example reports and attempts at fixing the files in the example_ai_reports folder
 
 
-## 12. BrowserStack Integration
+## 15. BrowserStack Integration
 
 You can run your Playwright tests on real browsers in the cloud using [BrowserStack](https://www.browserstack.com/). This is useful for cross-browser and cross-OS testing without maintaining your own infrastructure.
 
@@ -418,7 +459,7 @@ When `BROWSERSTACK_ENABLED=false`, tests run locally as usual.
 Activate your virtual environment and run:
 
 ```sh
-BROWSERSTACK_ENABLED=true pytest --alluredir=allure-results
+BROWSERSTACK_ENABLED=true pytest --alluredir=test_artifacts/allure/allure-results
 ```
 
 You can also set the environment variable in your `.env.dev` file.
@@ -454,6 +495,31 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 
 ---
 
+**Regenerate Docs for LLMs:**  
+This project makes use of OneFileLLM: https://github.com/jimmc414/onefilellm
+
+To install:
+```bash
+git clone https://github.com/jimmc414/onefilellm.git
+cd onefilellm
+pip install -r requirements.txt
+pip install -e .
+```
+
+For GitHub API access (recommended):
+```bash
+export GITHUB_TOKEN="your_personal_access_token"
+```
+
+To regenerate output.xml:
+```python
+python onefilellm.py https://github.com/philmcneely/PythonPlaywright_Hudl
+```
+
+You can also run the script against a local repository by providing the local path instead of a GitHub URL, for example:
+```python
+python onefilellm.py /path/to/your/local/repo
+---
 
 
 ## Troubleshooting
@@ -484,6 +550,42 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 - `config/` — Settings files here
 - `tests/` — Test files go here
 - `screenshots/` — Test screenshots
+
+## Directory Structure 📂
+
+```text
+.
+├── 📄 .env.dev, .env.test, .env.prod   — Environment variable files
+├── 📄 conftest.py                      — Config & fixtures
+├── 📄 pytest.ini                       — Pytest settings
+├── 📄 requirements_with_versions.txt   — Python deps
+│
+├── 📂 test_artifacts/                  — Test artifacts
+│   ├── 📂 visual/
+│   │   ├── 📂 example                  — Example visual regression results
+│   │   │   ├── 📂 visual_baselines     — Baseline screenshots
+│   │   │   ├── 📂 visual_current       — Current screenshots
+│   │   │   ├── 📂 visual_diffs         — Diff images
+│   │   ├── 📂 visual_baselines         — Baseline screenshots
+│   │   ├── 📂 visual_current           — Current screenshots
+│   │   ├── 📂 visual_diffs             — Diff images
+│   ├── 📂 ai/
+│   │   ├── 📂 ai_healing_reports       — AI healing reports
+│   │   ├── 📂 example_ai_reports/      — Example AI reports
+│   ├── 📂 allure/
+│   │   ├── 📂 allure-report            — Generated Allure HTML report
+│   │   ├── 📂 allure-results           — Raw test results
+│   │   ├── 📂 screenshots              — Test screenshots
+├── 📂 pages/                           — Page Object Models
+├── 📂 utils/                           — Utilities
+│   ├── 📄 visual_regression.py
+│   └── 📄 network_mocking.py
+├── 📂 data/                            — Test data
+├── 📂 config/                          — Settings
+├── 📂 tests/                           — Test files
+│   ├── 📂 visual/                      — Visual regression tests
+│   └── 📂 api/                         — API mocking tests
+```
 
 ---
 
@@ -524,7 +626,7 @@ class Settings:
     VIDEO_ON_FAILURE: bool = os.getenv("VIDEO_ON_FAILURE", "true").lower() == "true"
     
     # Allure Configuration - not using atm
-    ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "allure-results")
+    ALLURE_RESULTS_DIR: str = os.getenv("ALLURE_RESULTS_DIR", "test_artifacts/allure/allure-results")
 
     DEBUG_MSG: bool = os.getenv("DEBUG_MSG", "false").lower() == "true" 
 
@@ -624,6 +726,15 @@ from utils.ai_healing import get_ollama_service, find_page_object, ensure_ollama
 from utils.browserstack import is_browserstack_enabled
 from utils.debug import debug_print
 from playwright.async_api import async_playwright
+
+# Import the visual regression fixture
+from utils.visual_regression import visual_regression
+
+# Import the api mocking fixture
+from utils.network_mocking import api_mocker
+
+# Pytest fixtures (prevents auto-removal)
+pytest_fixtures = [visual_regression, api_mocker]
 
 # Thread-safe dictionary and lock for tracking test failure counts
 _ai_healing_fail_counts = defaultdict(int)
@@ -949,6 +1060,7 @@ def pytest_runtest_makereport(item, call):
                     del _ai_healing_fail_counts[test_key]
         else:
             print(f"🔄 Test {item.name} will be retried (attempt {fail_count}), skipping AI healing")
+
 </file>
 
 <file path="data/personas.py">
@@ -1216,266 +1328,39 @@ def get_random_xss_payload():
     return random.choice(list(XSS_PAYLOADS.values()))
 </file>
 
-<file path="example_ai_reports/test_login_brute_force_20250730_112151_ollama_analysis.md">
-# 🧠 Ollama AI Healing Report
+<file path="enhancements.md">
+Advanced Testing Features
 
-## Test Information
-- **Test Name**: `test_login_brute_force`
-- **Timestamp**: `20250730_112151`
-- **Model Used**: `gemma2:2b`
-- **URL**: `N/A`
-- **Error Type**: `Unknown`
 
-## Error Details
-```
-assert False
-```
+# Advanced Testing Features Enhancements
 
-## Ollama Analysis
-```
-The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.
-```
+## Implementation Status
 
-## Root Cause
-```
-Potential issues with the login form's validation logic or how it handles user input.
-```
+- [x] **Visual regression testing** - Compare screenshots across test runs to catch UI changes
+- [x] **Network interception & mocking** - Mock API responses for consistent testing
+- [ ] **Performance monitoring** - Measure page load times, Core Web Vitals, and resource usage
+- [ ] **Cross-browser parallel execution** - Run tests simultaneously across Chrome, Firefox, and Safari
 
-## Suggested Fix
-```
-Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.
-```
+## Automation Enhancements
 
-## Updated Code
-```
-```python
-    # ... (rest of your test code) 
+- [ ] **Smart waiting strategies** - Custom wait conditions for dynamic content
+- [ ] **Auto-retry mechanisms** - Intelligent retry logic for flaky elements
+- [ ] **Data-driven testing** - CSV/JSON-powered test parameterization
+- [ ] **Custom fixtures** - Reusable setup/teardown for complex scenarios
 
-    @pytest.mark.asyncio
-    async def test_login_comprehensive_email_sql_injection(app):
-        # ... (your existing test code)
+## Reporting & Monitoring
 
-        # Add more assertions to verify the form's behavior and error handling.
-        assert await app.login_page.error_message_email_invalid.is_visible()
-        assert await app.login_page.has_email_invalid_error_icon()
-```
-```
+- [ ] **Interactive HTML reports** with screenshots and videos
+- [ ] **Slack/Teams notifications** for test results
+- [ ] **Test execution dashboards** with metrics and trends
+- [ ] **Failed test auto-screenshots** with element highlighting
 
-## Confidence Level
-**80.0%**
+## Cool Integrations
 
-## Recommendations
-```
- - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. 
-- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. 
-- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue.
-```
-
-## Raw Ollama Response
-<details>
-<summary>Click to expand raw response</summary>
-
-```
-```json
-{
-    "analysis": "The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.",
-    "root_cause": "Potential issues with the login form's validation logic or how it handles user input.",
-    "confidence": 0.8,
-    "suggested_fix": "Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.",
-    "updated_test_code": "```python\n    # ... (rest of your test code) \n\n    @pytest.mark.asyncio\n    async def test_login_comprehensive_email_sql_injection(app):\n        # ... (your existing test code)\n\n        # Add more assertions to verify the form's behavior and error handling.\n        assert await app.login_page.error_message_email_invalid.is_visible()\n        assert await app.login_page.has_email_invalid_error_icon()\n```",
-    "recommendations": " - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. \n- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. \n- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue."
-}
-```
-```
-</details>
-
----
-*Generated by Ollama AI Healing System*
-
-</file>
-
-<file path="example_ai_reports/test_login_brute_force_20250730_112151_ollama_healed.py">
-```python
-    # ... (rest of your test code) 
-
-    @pytest.mark.asyncio
-    async def test_login_comprehensive_email_sql_injection(app):
-        # ... (your existing test code)
-
-        # Add more assertions to verify the form's behavior and error handling.
-        assert await app.login_page.error_message_email_invalid.is_visible()
-        assert await app.login_page.has_email_invalid_error_icon()
-```
-</file>
-
-<file path="example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_analysis.md">
-# 🧠 Ollama AI Healing Report
-
-## Test Information
-- **Test Name**: `test_login_direct_valid_credentials`
-- **Timestamp**: `20250730_112614`
-- **Model Used**: `gemma2:2b`
-- **URL**: `N/A`
-- **Error Type**: `Unknown`
-
-## Error Details
-```
-'LoginPage' object has no attribute 'enter_passwordx'
-```
-
-## Ollama Analysis
-```
-The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.
-```
-
-## Root Cause
-```
-Typographical error in the test code (e.g., incorrect element name) or missing element definition
-```
-
-## Suggested Fix
-```
-Verify the element names used in the test code against the actual HTML structure of the LoginPage class.
-```
-
-## Updated Code
-```
-```python
-@pytest.mark.login
-@pytest.mark.asyncio
-async def test_login_direct_valid_credentials(app):
-    # ... (rest of the test code)
-    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
-    # ... (rest of the test code)
-```
-```
-
-## Confidence Level
-**95.0%**
-
-## Recommendations
-```
-Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors.
-```
-
-## Raw Ollama Response
-<details>
-<summary>Click to expand raw response</summary>
-
-```
-```json
-{
-    "analysis": "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.",
-    "root_cause": "Typographical error in the test code (e.g., incorrect element name) or missing element definition",
-    "confidence": 0.95,
-    "suggested_fix": "Verify the element names used in the test code against the actual HTML structure of the LoginPage class.",
-    "updated_test_code": "```python\n@pytest.mark.login\n@pytest.mark.asyncio\nasync def test_login_direct_valid_credentials(app):\n    # ... (rest of the test code)\n    await app.login_page.enter_passwordx(PERSONAS['user']['password']) \n    # ... (rest of the test code)\n```",
-    "recommendations": "Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors." 
-}
-```
-```
-</details>
-
----
-*Generated by Ollama AI Healing System*
-
-</file>
-
-<file path="example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_healed.py">
-```python
-@pytest.mark.login
-@pytest.mark.asyncio
-async def test_login_direct_valid_credentials(app):
-    # ... (rest of the test code)
-    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
-    # ... (rest of the test code)
-```
-</file>
-
-<file path="example_ai_reports/test_login_invalid_email_20250730_112142_ollama_analysis.md">
-# 🧠 Ollama AI Healing Report
-
-## Test Information
-- **Test Name**: `test_login_invalid_email`
-- **Timestamp**: `20250730_112142`
-- **Model Used**: `gemma2:2b`
-- **URL**: `N/A`
-- **Error Type**: `Unknown`
-
-## Error Details
-```
-assert False
-```
-
-## Ollama Analysis
-```
-The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.
-```
-
-## Root Cause
-```
-Incorrect email format
-```
-
-## Suggested Fix
-```
-Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.
-```
-
-## Updated Code
-```
-```python
-async def test_login_invalid_email(app):
-    await app.login_page.load_login_direct()
-    await app.login_page.enter_email('dadfdf@gmail.com')
-    await app.login_page.click_continue()
-    # Assert error message for incorrect email is visible
-    assert await app.login_page.error_message_email_incorrect.is_visible()
-    # ... rest of the test code 
-```
-```
-
-## Confidence Level
-**95.0%**
-
-## Recommendations
-```
-Ensure that the email validation logic in your application is robust and handles various input formats correctly.
-```
-
-## Raw Ollama Response
-<details>
-<summary>Click to expand raw response</summary>
-
-```
-```json
-{
-    "analysis": "The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.",
-    "root_cause": "Incorrect email format",
-    "confidence": 0.95,
-    "suggested_fix": "Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.",
-    "updated_test_code": "```python\nasync def test_login_invalid_email(app):\n    await app.login_page.load_login_direct()\n    await app.login_page.enter_email('dadfdf@gmail.com')\n    await app.login_page.click_continue()\n    # Assert error message for incorrect email is visible\n    assert await app.login_page.error_message_email_incorrect.is_visible()\n    # ... rest of the test code \n```",
-    "recommendations": "Ensure that the email validation logic in your application is robust and handles various input formats correctly." 
-}
-```
-```
-</details>
-
----
-*Generated by Ollama AI Healing System*
-
-</file>
-
-<file path="example_ai_reports/test_login_invalid_email_20250730_112142_ollama_healed.py">
-```python
-async def test_login_invalid_email(app):
-    await app.login_page.load_login_direct()
-    await app.login_page.enter_email('dadfdf@gmail.com')
-    await app.login_page.click_continue()
-    # Assert error message for incorrect email is visible
-    assert await app.login_page.error_message_email_incorrect.is_visible()
-    # ... rest of the test code 
-```
+- [ ] **Headless browser automation** for web scraping tasks
+- [ ] **PDF generation testing** - Validate generated documents
+- [ ] **Email testing** - Verify email content and delivery
+- [ ] **Database validation** - Check data consistency after UI actions
 </file>
 
 <file path="pages/__init__.py">
@@ -1644,7 +1529,7 @@ class DashboardPage:
     @property
     def user_initials(self):
         """Locator for the user initials in the avatar."""
-        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user")
+        return self.page.locator("h5.uni-avatar__initials.uni-avatar__initials--user").first
 
     @property
     def user_name(self):
@@ -2423,7 +2308,7 @@ addopts =
     --strict-config
     --verbose
     --tb=short
-    --alluredir=allure-results
+    --alluredir=test_artifacts/allure/allure-results
     --clean-alluredir
 markers =
     smoke: marks tests as smoke tests
@@ -2456,10 +2341,1249 @@ pytest-asyncio==0.23.6
 pytest-xdist==3.6.1
 allure-pytest==2.15.0
 greenlet==3.2.3
+
+# Visual regression testing dependencies
+Pillow>=11.0.0
+opencv-python>=4.12.0
+numpy>=2.2.0
+
+# Visual regression testing dependencies
+#Pillow>=9.0.0
+#opencv-python>=4.5.0
+#numpy>=1.21.0
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_brute_force_20250730_112151_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_brute_force`
+- **Timestamp**: `20250730_112151`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+assert False
+```
+
+## Ollama Analysis
+```
+The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.
+```
+
+## Root Cause
+```
+Potential issues with the login form's validation logic or how it handles user input.
+```
+
+## Suggested Fix
+```
+Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.
+```
+
+## Updated Code
+```
+```python
+    # ... (rest of your test code) 
+
+    @pytest.mark.asyncio
+    async def test_login_comprehensive_email_sql_injection(app):
+        # ... (your existing test code)
+
+        # Add more assertions to verify the form's behavior and error handling.
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        assert await app.login_page.has_email_invalid_error_icon()
+```
+```
+
+## Confidence Level
+**80.0%**
+
+## Recommendations
+```
+ - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. 
+- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. 
+- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The test is failing due to a potential issue with the login form's handling of invalid input. The error message is visible, but it might not be clear what exactly caused the failure.  It's likely that the form is not correctly validating or processing the input data.",
+    "root_cause": "Potential issues with the login form's validation logic or how it handles user input.",
+    "confidence": 0.8,
+    "suggested_fix": "Investigate the login form's code to identify potential errors in the validation logic and error handling.  Ensure that the form is correctly validating the email and password inputs and displaying appropriate error messages.",
+    "updated_test_code": "```python\n    # ... (rest of your test code) \n\n    @pytest.mark.asyncio\n    async def test_login_comprehensive_email_sql_injection(app):\n        # ... (your existing test code)\n\n        # Add more assertions to verify the form's behavior and error handling.\n        assert await app.login_page.error_message_email_invalid.is_visible()\n        assert await app.login_page.has_email_invalid_error_icon()\n```",
+    "recommendations": " - **Test Data:**  Use a more comprehensive test data set to cover various scenarios and potential attack vectors. This will help in identifying the root cause of failures. \n- **Logging:** Implement logging for critical events during the login process, including errors and warnings. This will provide valuable insights into what's happening during the test execution. \n- **Error Handling:**  Ensure that the application handles invalid input gracefully and provides clear error messages to the user. This helps in debugging and understanding the issue."
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_brute_force_20250730_112151_ollama_healed.py">
+```python
+    # ... (rest of your test code) 
+
+    @pytest.mark.asyncio
+    async def test_login_comprehensive_email_sql_injection(app):
+        # ... (your existing test code)
+
+        # Add more assertions to verify the form's behavior and error handling.
+        assert await app.login_page.error_message_email_invalid.is_visible()
+        assert await app.login_page.has_email_invalid_error_icon()
+```
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_direct_valid_credentials`
+- **Timestamp**: `20250730_112614`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+'LoginPage' object has no attribute 'enter_passwordx'
+```
+
+## Ollama Analysis
+```
+The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.
+```
+
+## Root Cause
+```
+Typographical error in the test code (e.g., incorrect element name) or missing element definition
+```
+
+## Suggested Fix
+```
+Verify the element names used in the test code against the actual HTML structure of the LoginPage class.
+```
+
+## Updated Code
+```
+```python
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    # ... (rest of the test code)
+    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
+    # ... (rest of the test code)
+```
+```
+
+## Confidence Level
+**95.0%**
+
+## Recommendations
+```
+Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The error message 'LoginPage' object has no attribute 'enter_passwordx' indicates that the code is attempting to access an element named 'enter_passwordx' within the LoginPage class. This likely means there's a typo in the code, or the element name might be incorrect.",
+    "root_cause": "Typographical error in the test code (e.g., incorrect element name) or missing element definition",
+    "confidence": 0.95,
+    "suggested_fix": "Verify the element names used in the test code against the actual HTML structure of the LoginPage class.",
+    "updated_test_code": "```python\n@pytest.mark.login\n@pytest.mark.asyncio\nasync def test_login_direct_valid_credentials(app):\n    # ... (rest of the test code)\n    await app.login_page.enter_passwordx(PERSONAS['user']['password']) \n    # ... (rest of the test code)\n```",
+    "recommendations": "Ensure consistent element naming across your tests, and use a robust testing framework like pytest to handle potential errors." 
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_direct_valid_credentials_20250730_112614_ollama_healed.py">
+```python
+@pytest.mark.login
+@pytest.mark.asyncio
+async def test_login_direct_valid_credentials(app):
+    # ... (rest of the test code)
+    await app.login_page.enter_passwordx(PERSONAS['user']['password']) 
+    # ... (rest of the test code)
+```
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_invalid_email_20250730_112142_ollama_analysis.md">
+# 🧠 Ollama AI Healing Report
+
+## Test Information
+- **Test Name**: `test_login_invalid_email`
+- **Timestamp**: `20250730_112142`
+- **Model Used**: `gemma2:2b`
+- **URL**: `N/A`
+- **Error Type**: `Unknown`
+
+## Error Details
+```
+assert False
+```
+
+## Ollama Analysis
+```
+The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.
+```
+
+## Root Cause
+```
+Incorrect email format
+```
+
+## Suggested Fix
+```
+Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.
+```
+
+## Updated Code
+```
+```python
+async def test_login_invalid_email(app):
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email('dadfdf@gmail.com')
+    await app.login_page.click_continue()
+    # Assert error message for incorrect email is visible
+    assert await app.login_page.error_message_email_incorrect.is_visible()
+    # ... rest of the test code 
+```
+```
+
+## Confidence Level
+**95.0%**
+
+## Recommendations
+```
+Ensure that the email validation logic in your application is robust and handles various input formats correctly.
+```
+
+## Raw Ollama Response
+<details>
+<summary>Click to expand raw response</summary>
+
+```
+```json
+{
+    "analysis": "The test is failing due to the incorrect email format. The error message 'Email or password is incorrect' is displayed, indicating that the validation failed. This suggests a potential issue with the email input field.",
+    "root_cause": "Incorrect email format",
+    "confidence": 0.95,
+    "suggested_fix": "Verify the email format and ensure it matches the expected format (e.g., '@gmail.com'). Check for typos or incorrect characters in the email address.",
+    "updated_test_code": "```python\nasync def test_login_invalid_email(app):\n    await app.login_page.load_login_direct()\n    await app.login_page.enter_email('dadfdf@gmail.com')\n    await app.login_page.click_continue()\n    # Assert error message for incorrect email is visible\n    assert await app.login_page.error_message_email_incorrect.is_visible()\n    # ... rest of the test code \n```",
+    "recommendations": "Ensure that the email validation logic in your application is robust and handles various input formats correctly." 
+}
+```
+```
+</details>
+
+---
+*Generated by Ollama AI Healing System*
+
+</file>
+
+<file path="test_artifacts/ai/example_ai_reports/test_login_invalid_email_20250730_112142_ollama_healed.py">
+```python
+async def test_login_invalid_email(app):
+    await app.login_page.load_login_direct()
+    await app.login_page.enter_email('dadfdf@gmail.com')
+    await app.login_page.click_continue()
+    # Assert error message for incorrect email is visible
+    assert await app.login_page.error_message_email_incorrect.is_visible()
+    # ... rest of the test code 
+```
 </file>
 
 <file path="tests/__init__.py">
 
+</file>
+
+<file path="tests/api/test_api_mocking.py">
+"""
+Comprehensive API Mocking Test Suite
+====================================
+
+This test suite demonstrates various API mocking scenarios using the network_mocking utility.
+It covers common real-world API testing patterns including CRUD operations, error handling,
+network conditions, and data validation.
+
+Test Categories:
+    ✓ Basic API mocking (GET, POST, PUT, DELETE)
+    ✓ File-based mock data loading
+    ✓ Dynamic response generation
+    ✓ Error handling and edge cases
+    ✓ Network condition simulation
+    ✓ Authentication and headers
+    ✓ Pagination and filtering
+    ✓ Real-time data scenarios
+
+Run with: pytest tests/api/test_api_mocking.py -v
+"""
+
+import pytest
+import json
+import time
+from pathlib import Path
+from utils.network_mocking import create_mock_data_file, get_mock_template
+
+
+class TestBasicAPIMocking:
+    """Test basic CRUD operations with API mocking."""
+    
+    @pytest.mark.asyncio
+    async def test_get_users_list(self, page, api_mocker):
+        """Test fetching a list of users from API."""
+        # Mock the users API endpoint with wildcard pattern to catch any base URL
+        users_data = get_mock_template("users")
+        await api_mocker.mock_get("**/api/users", users_data)
+        
+        # Create a simple HTML page that fetches users
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <head><title>Users</title></head>
+        <body>
+            <div id="users-container">Loading...</div>
+            <script>
+                fetch('http://localhost/api/users')
+                    .then(response => response.json())
+                    .then(data => {
+                        const container = document.getElementById('users-container');
+                        container.innerHTML = data.users.map(user => 
+                            `<div class="user" data-id="${user.id}">${user.name} (${user.email})</div>`
+                        ).join('');
+                    })
+                    .catch(error => {
+                        document.getElementById('users-container').innerHTML = 'Error loading users';
+                    });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        
+        # Wait for the API call to complete and verify results
+        await page.wait_for_selector('.user')
+        users = await page.locator('.user').all()
+        
+        assert len(users) == 3
+        assert await users[0].text_content() == "John Doe (john@example.com)"
+        assert await users[1].text_content() == "Jane Smith (jane@example.com)"
+        
+        # Verify the request was logged
+        requests = api_mocker.get_request_log()
+        assert len(requests) == 1
+        assert requests[0]['method'] == 'GET'
+        assert '/api/users' in requests[0]['url']
+    
+    @pytest.mark.asyncio
+    async def test_create_user_post(self, page, api_mocker):
+        """Test creating a new user via POST request."""
+        # Mock successful user creation
+        new_user_response = {
+            "id": 4,
+            "name": "Alice Cooper",
+            "email": "alice@example.com",
+            "active": True,
+            "created_at": "2024-01-15T10:30:00Z"
+        }
+        await api_mocker.mock_post("**/api/users", new_user_response, status=201)
+        
+        # Create form to submit new user
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <form id="user-form">
+                <input type="text" id="name" value="Alice Cooper" />
+                <input type="email" id="email" value="alice@example.com" />
+                <button type="submit">Create User</button>
+            </form>
+            <div id="result"></div>
+            <script>
+                document.getElementById('user-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = {
+                        name: document.getElementById('name').value,
+                        email: document.getElementById('email').value
+                    };
+                    
+                    try {
+                        const response = await fetch('http://localhost/api/users', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify(formData)
+                        });
+                        const result = await response.json();
+                        document.getElementById('result').innerHTML = 
+                            `User created: ${result.name} (ID: ${result.id})`;
+                    } catch (error) {
+                        document.getElementById('result').innerHTML = 'Error creating user';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('button[type="submit"]')
+        
+        # Verify the user was "created"
+        await page.wait_for_selector('#result')
+        result_text = await page.locator('#result').text_content()
+        assert "User created: Alice Cooper (ID: 4)" in result_text
+        
+        # Verify POST request was made
+        requests = api_mocker.get_request_log()
+        assert len(requests) == 1
+        assert requests[0]['method'] == 'POST'
+        
+        # Verify request payload
+        post_data = json.loads(requests[0]['post_data'])
+        assert post_data['name'] == 'Alice Cooper'
+        assert post_data['email'] == 'alice@example.com'
+    
+    @pytest.mark.asyncio
+    async def test_update_user_put(self, page, api_mocker):
+        """Test updating a user via PUT request."""
+        updated_user = {
+            "id": 1,
+            "name": "John Doe Updated",
+            "email": "john.updated@example.com",
+            "active": True,
+            "updated_at": "2024-01-15T11:00:00Z"
+        }
+        await api_mocker.mock_put("**/api/users/1", updated_user)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="update-btn">Update User 1</button>
+            <div id="status"></div>
+            <script>
+                document.getElementById('update-btn').addEventListener('click', async () => {
+                    const updateData = {
+                        name: "John Doe Updated",
+                        email: "john.updated@example.com"
+                    };
+                    
+                    const response = await fetch('http://localhost/api/users/1', {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(updateData)
+                    });
+                    const result = await response.json();
+                    document.getElementById('status').innerHTML = `Updated: ${result.name}`;
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#update-btn')
+        
+        await page.wait_for_selector('#status')
+        status = await page.locator('#status').text_content()
+        assert "Updated: John Doe Updated" in status
+    
+    @pytest.mark.asyncio
+    async def test_delete_user(self, page, api_mocker):
+        """Test deleting a user via DELETE request."""
+        await api_mocker.mock_delete("**/api/users/1", {"message": "User deleted successfully"})
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="delete-btn">Delete User 1</button>
+            <div id="message"></div>
+            <script>
+                document.getElementById('delete-btn').addEventListener('click', async () => {
+                    const response = await fetch('http://localhost/api/users/1', {method: 'DELETE'});
+                    const result = await response.json();
+                    document.getElementById('message').innerHTML = result.message;
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#delete-btn')
+        
+        await page.wait_for_selector('#message')
+        message = await page.locator('#message').text_content()
+        assert "User deleted successfully" in message
+
+
+class TestFileBasedMocking:
+    """Test file-based mock data loading."""
+    
+    @pytest.fixture(autouse=True)
+    def setup_mock_files(self):
+        """Create mock data files for testing."""
+        # Create test data directory
+        Path("test_data").mkdir(exist_ok=True)
+        
+        # Create products mock file
+        products_data = {
+            "products": [
+                {"id": 1, "name": "Gaming Laptop", "price": 1299.99, "category": "Electronics", "stock": 15},
+                {"id": 2, "name": "Wireless Mouse", "price": 29.99, "category": "Electronics", "stock": 50},
+                {"id": 3, "name": "Coffee Maker", "price": 89.99, "category": "Kitchen", "stock": 8}
+            ],
+            "total": 3,
+            "page": 1,
+            "per_page": 10
+        }
+        create_mock_data_file("test_data/products.json", products_data)
+        
+        # Create orders mock file
+        orders_data = {
+            "orders": [
+                {"id": 1001, "user_id": 1, "total": 1329.98, "status": "completed", "items": 2},
+                {"id": 1002, "user_id": 2, "total": 89.99, "status": "pending", "items": 1}
+            ]
+        }
+        create_mock_data_file("test_data/orders.json", orders_data)
+        
+        yield
+        
+        # Cleanup (optional)
+        import shutil
+        if Path("test_data").exists():
+            shutil.rmtree("test_data")
+    
+    @pytest.mark.asyncio
+    async def test_load_products_from_file(self, page, api_mocker):
+        """Test loading product data from JSON file."""
+        await api_mocker.mock_from_file("**/api/products", "test_data/products.json")
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <div id="products-grid">Loading products...</div>
+            <script>
+                fetch('http://localhost/api/products')
+                    .then(response => response.json())
+                    .then(data => {
+                        const grid = document.getElementById('products-grid');
+                        grid.innerHTML = data.products.map(product => 
+                            `<div class="product" data-id="${product.id}">
+                                <h3>${product.name}</h3>
+                                <p>$${product.price} - Stock: ${product.stock}</p>
+                                <span class="category">${product.category}</span>
+                            </div>`
+                        ).join('');
+                    });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.wait_for_selector('.product')
+        
+        products = await page.locator('.product').all()
+        assert len(products) == 3
+        
+        # Verify specific product details
+        laptop = page.locator('.product[data-id="1"]')
+        assert await laptop.locator('h3').text_content() == "Gaming Laptop"
+        assert "$1299.99" in await laptop.locator('p').text_content()
+        assert await laptop.locator('.category').text_content() == "Electronics"
+
+
+class TestDynamicResponses:
+    """Test dynamic response generation."""
+    
+    @pytest.mark.asyncio
+    async def test_dynamic_timestamp_response(self, page, api_mocker):
+        """Test dynamic response with current timestamp."""
+        def timestamp_response(request):
+            return {
+                "timestamp": int(time.time()),
+                "server_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "request_url": request.url,
+                "user_agent": request.headers.get("user-agent", "unknown")
+            }
+        
+        await api_mocker.mock_with_function("**/api/server-info", timestamp_response)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="get-info">Get Server Info</button>
+            <div id="server-info"></div>
+            <script>
+                document.getElementById('get-info').addEventListener('click', async () => {
+                    const response = await fetch('http://localhost/api/server-info');
+                    const data = await response.json();
+                    document.getElementById('server-info').innerHTML = 
+                        `<div>Time: ${data.server_time}</div>
+                         <div>Timestamp: ${data.timestamp}</div>`;
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#get-info')
+        
+        await page.wait_for_selector('#server-info div')
+        info_divs = await page.locator('#server-info div').all()
+        
+        assert len(info_divs) == 2
+        time_text = await info_divs[0].text_content()
+        timestamp_text = await info_divs[1].text_content()
+        
+        assert "Time:" in time_text
+        assert "Timestamp:" in timestamp_text
+    
+    @pytest.mark.asyncio
+    async def test_search_with_query_params(self, page, api_mocker):
+        """Test dynamic response based on query parameters."""
+        def search_response(request):
+            url = request.url
+            if "q=laptop" in url:
+                return {"results": [{"id": 1, "name": "Gaming Laptop", "price": 1299.99}], "count": 1}
+            elif "q=mouse" in url:
+                return {"results": [{"id": 2, "name": "Wireless Mouse", "price": 29.99}], "count": 1}
+            else:
+                return {"results": [], "count": 0}
+        
+        await api_mocker.mock_with_function("**/api/search*", search_response)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <input type="text" id="search-input" placeholder="Search products..." />
+            <button id="search-btn">Search</button>
+            <div id="search-results"></div>
+            <script>
+                document.getElementById('search-btn').addEventListener('click', async () => {
+                    const query = document.getElementById('search-input').value;
+                    const response = await fetch(`http://localhost/api/search?q=${encodeURIComponent(query)}`);
+                    const data = await response.json();
+                    
+                    const resultsDiv = document.getElementById('search-results');
+                    if (data.count > 0) {
+                        resultsDiv.innerHTML = data.results.map(item => 
+                            `<div class="result">${item.name} - $${item.price}</div>`
+                        ).join('');
+                    } else {
+                        resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        
+        # Test laptop search
+        await page.fill('#search-input', 'laptop')
+        await page.click('#search-btn')
+        await page.wait_for_selector('.result')
+        
+        result = await page.locator('.result').text_content()
+        assert "Gaming Laptop - $1299.99" in result
+        
+        # Test no results
+        await page.fill('#search-input', 'nonexistent')
+        await page.click('#search-btn')
+        await page.wait_for_selector('.no-results')
+        
+        no_results = await page.locator('.no-results').text_content()
+        assert "No results found" in no_results
+
+
+class TestErrorHandling:
+    """Test error scenarios and edge cases."""
+    
+    @pytest.mark.asyncio
+    async def test_api_server_error(self, page, api_mocker):
+        """Test handling of 500 server errors."""
+        error_response = {"error": "Internal server error", "code": "SERVER_ERROR"}
+        await api_mocker.mock_get("**/api/users", error_response, status=500)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <div id="content">Loading...</div>
+            <script>
+                fetch('http://localhost/api/users')
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('content').innerHTML = 'Success!';
+                    })
+                    .catch(error => {
+                        document.getElementById('content').innerHTML = 
+                            `<div class="error">Error: ${error.message}</div>`;
+                    });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.wait_for_selector('.error')
+        
+        error_text = await page.locator('.error').text_content()
+        assert "Error: HTTP 500" in error_text
+    
+    @pytest.mark.asyncio
+    async def test_api_not_found(self, page, api_mocker):
+        """Test handling of 404 not found errors."""
+        await api_mocker.mock_get("**/api/users/999", {"error": "User not found"}, status=404)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="load-user">Load User 999</button>
+            <div id="user-info"></div>
+            <script>
+                document.getElementById('load-user').addEventListener('click', async () => {
+                    try {
+                        const response = await fetch('http://localhost/api/users/999');
+                        if (response.status === 404) {
+                            document.getElementById('user-info').innerHTML = 
+                                '<div class="not-found">User not found</div>';
+                        } else {
+                            const data = await response.json();
+                            document.getElementById('user-info').innerHTML = 
+                                `<div>User: ${data.name}</div>`;
+                        }
+                    } catch (error) {
+                        document.getElementById('user-info').innerHTML = 
+                            '<div class="error">Network error</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#load-user')
+        await page.wait_for_selector('.not-found')
+        
+        not_found = await page.locator('.not-found').text_content()
+        assert "User not found" in not_found
+
+
+class TestNetworkConditions:
+    """Test various network conditions and scenarios."""
+    
+    @pytest.mark.asyncio
+    async def test_slow_network_simulation(self, page, api_mocker):
+        """Test behavior under slow network conditions."""
+        users_data = get_mock_template("users")
+        await api_mocker.mock_get("**/api/users", users_data, delay=2000)  # 2 second delay
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="load-users">Load Users</button>
+            <div id="loading" style="display:none;">Loading...</div>
+            <div id="users-list"></div>
+            <script>
+                document.getElementById('load-users').addEventListener('click', async () => {
+                    const loadingDiv = document.getElementById('loading');
+                    const usersDiv = document.getElementById('users-list');
+                    
+                    loadingDiv.style.display = 'block';
+                    usersDiv.innerHTML = '';
+                    
+                    const startTime = Date.now();
+                    
+                    try {
+                        const response = await fetch('http://localhost/api/users');
+                        const data = await response.json();
+                        const loadTime = Date.now() - startTime;
+                        
+                        loadingDiv.style.display = 'none';
+                        usersDiv.innerHTML = 
+                            `<div class="load-time">Loaded in ${loadTime}ms</div>
+                             <div class="user-count">${data.users.length} users loaded</div>`;
+                    } catch (error) {
+                        loadingDiv.style.display = 'none';
+                        usersDiv.innerHTML = '<div class="error">Failed to load</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#load-users')
+        
+        # Verify loading indicator appears
+        loading = page.locator('#loading')
+        await loading.wait_for(state='visible')
+        
+        # Wait for completion
+        await page.wait_for_selector('.load-time', timeout=5000)
+        
+        load_time_text = await page.locator('.load-time').text_content()
+        user_count_text = await page.locator('.user-count').text_content()
+        
+        # Should take at least 2 seconds due to delay
+        assert "ms" in load_time_text
+        assert "3 users loaded" in user_count_text
+    
+    @pytest.mark.asyncio
+    async def test_network_failure_simulation(self, page, api_mocker):
+        """Test behavior when network requests fail."""
+        await api_mocker.simulate_network_failure("**/api/users")
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="load-data">Load Data</button>
+            <div id="status"></div>
+            <script>
+                document.getElementById('load-data').addEventListener('click', async () => {
+                    try {
+                        const response = await fetch('http://localhost/api/users');
+                        document.getElementById('status').innerHTML = 'Success!';
+                    } catch (error) {
+                        document.getElementById('status').innerHTML = 
+                            '<div class="network-error">Network request failed</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#load-data')
+        await page.wait_for_selector('.network-error')
+        
+        error_text = await page.locator('.network-error').text_content()
+        assert "Network request failed" in error_text
+    
+    @pytest.mark.asyncio
+    async def test_offline_mode_simulation(self, page, api_mocker):
+        """Test complete offline scenario."""
+        await api_mocker.simulate_offline()
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="test-connection">Test Connection</button>
+            <div id="connection-status"></div>
+            <script>
+                document.getElementById('test-connection').addEventListener('click', async () => {
+                    const statusDiv = document.getElementById('connection-status');
+                    
+                    try {
+                        // Try multiple endpoints
+                        await Promise.all([
+                            fetch('http://localhost/api/users'),
+                            fetch('http://localhost/api/products'),
+                            fetch('http://localhost/health-check')
+                        ]);
+                        statusDiv.innerHTML = '<div class="online">All services online</div>';
+                    } catch (error) {
+                        statusDiv.innerHTML = '<div class="offline">Offline mode detected</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        await page.click('#test-connection')
+        await page.wait_for_selector('.offline')
+        
+        offline_text = await page.locator('.offline').text_content()
+        assert "Offline mode detected" in offline_text
+
+
+class TestAdvancedScenarios:
+    """Test advanced API scenarios like authentication, pagination, etc."""
+    
+    @pytest.mark.asyncio
+    async def test_authentication_headers(self, page, api_mocker):
+        """Test API calls with authentication headers."""
+        # Test valid authentication first
+        await api_mocker.mock_get("**/api/me", {"user": {"id": 1, "name": "Authenticated User", "role": "admin"}})
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="test-auth">Test Auth</button>
+            <div id="user-info"></div>
+            <script>
+                document.getElementById('test-auth').addEventListener('click', async () => {
+                    try {
+                        const response = await fetch('http://localhost/api/me', {
+                            headers: {
+                                'Authorization': 'Bearer valid-token'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            document.getElementById('user-info').innerHTML = 
+                                `<div class="success">Welcome, ${data.user.name}!</div>`;
+                        } else {
+                            document.getElementById('user-info').innerHTML = 
+                                '<div class="auth-error">Authentication failed</div>';
+                        }
+                    } catch (error) {
+                        document.getElementById('user-info').innerHTML = 
+                            '<div class="error">Request failed</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        
+        # Test valid authentication
+        await page.click('#test-auth')
+        await page.wait_for_selector('.success')
+        success_text = await page.locator('.success').text_content()
+        assert "Welcome, Authenticated User!" in success_text
+        
+        print("✅ Authentication test passed!")
+    
+    @pytest.mark.asyncio
+    async def test_authentication_error_handling(self, page, api_mocker):
+        """Test authentication error handling."""
+        # Mock with error response and 401 status
+        await api_mocker.mock_get("**/api/me", {"error": "Unauthorized"}, status=401)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <button id="test-auth">Test Auth</button>
+            <div id="user-info"></div>
+            <script>
+                document.getElementById('test-auth').addEventListener('click', async () => {
+                    try {
+                        const response = await fetch('http://localhost/api/me', {
+                            headers: {
+                                'Authorization': 'Bearer invalid-token'
+                            }
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            document.getElementById('user-info').innerHTML = 
+                                `<div class="success">Welcome, ${data.user.name}!</div>`;
+                        } else {
+                            document.getElementById('user-info').innerHTML = 
+                                '<div class="auth-error">Authentication failed</div>';
+                        }
+                    } catch (error) {
+                        document.getElementById('user-info').innerHTML = 
+                            '<div class="error">Request failed</div>';
+                    }
+                });
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        
+        # Test invalid authentication
+        await page.click('#test-auth')
+        await page.wait_for_selector('.auth-error')
+        error_text = await page.locator('.auth-error').text_content()
+        assert "Authentication failed" in error_text
+        
+        print("✅ Authentication error test passed!")
+    
+    @pytest.mark.asyncio
+    async def test_pagination_scenario(self, page, api_mocker):
+        """Test paginated API responses."""
+        # Mock page 1
+        page1_data = {
+            "users": [
+                {"id": 1, "name": "User 1"},
+                {"id": 2, "name": "User 2"},
+                {"id": 3, "name": "User 3"}
+            ],
+            "page": 1,
+            "per_page": 3,
+            "total": 7,
+            "total_pages": 3,
+            "has_next": True
+        }
+        await api_mocker.mock_get("**/api/users?page=1", page1_data)
+        
+        # Mock page 2
+        page2_data = {
+            "users": [
+                {"id": 4, "name": "User 4"},
+                {"id": 5, "name": "User 5"},
+                {"id": 6, "name": "User 6"}
+            ],
+            "page": 2,
+            "per_page": 3,
+            "total": 7,
+            "total_pages": 3,
+            "has_next": True
+        }
+        await api_mocker.mock_get("**/api/users?page=2", page2_data)
+        
+        html_content = """
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <div id="users-list"></div>
+            <button id="load-page1">Load Page 1</button>
+            <button id="load-page2">Load Page 2</button>
+            <div id="pagination-info"></div>
+            <script>
+                async function loadPage(pageNum) {
+                    const response = await fetch(`http://localhost/api/users?page=${pageNum}`);
+                    const data = await response.json();
+                    
+                    document.getElementById('users-list').innerHTML = 
+                        data.users.map(user => `<div class="user">${user.name}</div>`).join('');
+                    
+                    document.getElementById('pagination-info').innerHTML = 
+                        `<div class="page-info">Page ${data.page} of ${data.total_pages} (${data.total} total users)</div>`;
+                }
+                
+                document.getElementById('load-page1').addEventListener('click', () => loadPage(1));
+                document.getElementById('load-page2').addEventListener('click', () => loadPage(2));
+            </script>
+        </body>
+        </html>
+        """
+        
+        await page.set_content(html_content)
+        
+        # Test page 1
+        await page.click('#load-page1')
+        await page.wait_for_selector('.user')
+        users_page1 = await page.locator('.user').all()
+        assert len(users_page1) == 3
+        assert await users_page1[0].text_content() == "User 1"
+        
+        page_info = await page.locator('.page-info').text_content()
+        assert "Page 1 of 3" in page_info
+        assert "7 total users" in page_info
+        
+        # Test page 2
+        await page.click('#load-page2')
+        await page.wait_for_selector('.user')
+        users_page2 = await page.locator('.user').all()
+        assert len(users_page2) == 3
+        assert await users_page2[0].text_content() == "User 4"
+
+
+@pytest.mark.asyncio
+async def test_comprehensive_api_workflow(page, api_mocker):
+    """
+    Test a complete API workflow combining multiple operations.
+    This simulates a real application flow with multiple API calls.
+    """
+    # Mock authentication
+    await api_mocker.mock_post("**/api/auth/login", {
+        "token": "abc123",
+        "user": {"id": 1, "name": "Test User", "role": "user"}
+    })
+    
+    # Mock user profile
+    await api_mocker.mock_get("**/api/profile", {
+        "id": 1,
+        "name": "Test User",
+        "email": "test@example.com",
+        "preferences": {"theme": "dark", "notifications": True}
+    })
+    
+    # Mock dashboard data
+    await api_mocker.mock_get("**/api/dashboard", {
+        "stats": {"orders": 5, "revenue": 1250.50, "customers": 23},
+        "recent_activity": [
+            {"type": "order", "description": "New order #1001", "time": "2 minutes ago"},
+            {"type": "customer", "description": "New customer registered", "time": "5 minutes ago"}
+        ]
+    })
+    
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <div id="app">
+            <div id="login-form">
+                <input type="text" id="username" value="testuser" />
+                <input type="password" id="password" value="password" />
+                <button id="login-btn">Login</button>
+            </div>
+            <div id="dashboard" style="display:none;">
+                <div id="user-info"></div>
+                <div id="stats"></div>
+                <div id="activity"></div>
+                <button id="logout-btn">Logout</button>
+            </div>
+            <div id="status"></div>
+        </div>
+        <script>
+            let authToken = null;
+            
+            document.getElementById('login-btn').addEventListener('click', async () => {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                try {
+                    // Step 1: Login
+                    const loginResponse = await fetch('http://localhost/api/auth/login', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({username, password})
+                    });
+                    const loginData = await loginResponse.json();
+                    authToken = loginData.token;
+                    
+                    // Step 2: Load profile
+                    const profileResponse = await fetch('http://localhost/api/profile', {
+                        headers: {'Authorization': `Bearer ${authToken}`}
+                    });
+                    const profileData = await profileResponse.json();
+                    
+                    // Step 3: Load dashboard
+                    const dashboardResponse = await fetch('http://localhost/api/dashboard', {
+                        headers: {'Authorization': `Bearer ${authToken}`}
+                    });
+                    const dashboardData = await dashboardResponse.json();
+                    
+                    // Update UI
+                    document.getElementById('login-form').style.display = 'none';
+                    document.getElementById('dashboard').style.display = 'block';
+                    
+                    document.getElementById('user-info').innerHTML = 
+                        `<h2>Welcome, ${profileData.name}!</h2>`;
+                    
+                    document.getElementById('stats').innerHTML = 
+                        `<div class="stats">
+                            <div>Orders: ${dashboardData.stats.orders}</div>
+                            <div>Revenue: $${dashboardData.stats.revenue}</div>
+                            <div>Customers: ${dashboardData.stats.customers}</div>
+                        </div>`;
+                    
+                    document.getElementById('activity').innerHTML = 
+                        '<h3>Recent Activity:</h3>' +
+                        dashboardData.recent_activity.map(item => 
+                            `<div class="activity-item">${item.description} (${item.time})</div>`
+                        ).join('');
+                    
+                    document.getElementById('status').innerHTML = 
+                        '<div class="success">Login successful!</div>';
+                        
+                } catch (error) {
+                    document.getElementById('status').innerHTML = 
+                        '<div class="error">Login failed!</div>';
+                }
+            });
+            
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                authToken = null;
+                document.getElementById('login-form').style.display = 'block';
+                document.getElementById('dashboard').style.display = 'none';
+                document.getElementById('status').innerHTML = 
+                    '<div class="info">Logged out</div>';
+            });
+        </script>
+    </body>
+    </html>
+    """
+    
+    await page.set_content(html_content)
+    
+    # Perform login workflow
+    await page.click('#login-btn')
+    
+    # Wait for dashboard to load
+    await page.wait_for_selector('#dashboard[style*="block"]')
+    await page.wait_for_selector('.success')
+    
+    # Verify all components loaded
+    welcome_text = await page.locator('#user-info h2').text_content()
+    assert "Welcome, Test User!" in welcome_text
+    
+    stats_divs = await page.locator('.stats div').all()
+    assert len(stats_divs) == 3
+    assert "Orders: 5" in await stats_divs[0].text_content()
+    assert "Revenue: $1250.5" in await stats_divs[1].text_content()
+    
+    activity_items = await page.locator('.activity-item').all()
+    assert len(activity_items) == 2
+    assert "New order #1001" in await activity_items[0].text_content()
+    
+    success_msg = await page.locator('.success').text_content()
+    assert "Login successful!" in success_msg
+    
+    # Verify all API calls were made
+    requests = api_mocker.get_request_log()
+    assert len(requests) == 3
+    assert requests[0]['method'] == 'POST'  # Login
+    assert requests[1]['method'] == 'GET'   # Profile
+    assert requests[2]['method'] == 'GET'   # Dashboard
+    
+    # Test logout
+    await page.click('#logout-btn')
+    await page.wait_for_selector('#login-form[style*="block"]')
+    
+    logout_msg = await page.locator('.info').text_content()
+    assert "Logged out" in logout_msg
+    
+    # Print network activity summary
+    api_mocker.print_network_activity()
 </file>
 
 <file path="tests/conftest.py">
@@ -3355,6 +4479,331 @@ async def test_hudl_homepage(page):
     assert "Hudl" in await page.title()
 </file>
 
+<file path="tests/visual_regression/test_visual_regression.py">
+"""
+Visual Regression Test Suite
+Tests the visual regression fixture with intentional HTML modifications
+to verify threshold detection and diff generation.
+
+# Run all visual regression tests
+pytest tests/visual_regression/test_visual_regression.py -v 
+
+# Run just the failing test to see diff generation
+pytest tests/visual_regression/test_visual_regression.py::test_homepage_visual_major_change_should_fail -v
+
+"""
+
+import pytest
+import os
+from playwright.async_api import Page
+
+
+@pytest.mark.asyncio
+async def test_homepage_visual_baseline(page: Page, visual_regression):
+    """
+    Test that creates a baseline screenshot of a simple HTML page.
+    This should pass on first run (creates baseline) and subsequent runs.
+    """
+    # Create a simple HTML page
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Visual Regression Test</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 40px;
+                background-color: #f0f0f0;
+            }
+            .header { 
+                background-color: #4CAF50; 
+                color: white; 
+                padding: 20px; 
+                text-align: center;
+                border-radius: 8px;
+            }
+            .content { 
+                background-color: white; 
+                padding: 30px; 
+                margin-top: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .button {
+                background-color: #008CBA;
+                color: white;
+                padding: 15px 32px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                margin: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Visual Regression Testing</h1>
+        </div>
+        <div class="content">
+            <h2>Welcome to our test page</h2>
+            <p>This page is used to test visual regression detection.</p>
+            <button class="button">Click Me</button>
+            <button class="button">Another Button</button>
+        </div>
+    </body>
+    </html>
+    """
+    
+    await page.set_content(html_content)
+    await page.wait_for_load_state("networkidle")
+    
+    # Take baseline screenshot with 1% tolerance
+    await visual_regression("homepage_baseline", tolerance=0.01)
+
+
+@pytest.mark.asyncio
+async def test_homepage_visual_small_change(page: Page, visual_regression):
+    """
+    Test with a small change that should stay within tolerance.
+    Changes button text slightly - should pass with 2% tolerance.
+    """
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Visual Regression Test</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 40px;
+                background-color: #f0f0f0;
+            }
+            .header { 
+                background-color: #4CAF50; 
+                color: white; 
+                padding: 20px; 
+                text-align: center;
+                border-radius: 8px;
+            }
+            .content { 
+                background-color: white; 
+                padding: 30px; 
+                margin-top: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .button {
+                background-color: #008CBA;
+                color: white;
+                padding: 15px 32px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 16px;
+                margin: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>Visual Regression Testing</h1>
+        </div>
+        <div class="content">
+            <h2>Welcome to our test page</h2>
+            <p>This page is used to test visual regression detection.</p>
+            <button class="button">Click Here</button>  <!-- Small text change -->
+            <button class="button">Another Button</button>
+        </div>
+    </body>
+    </html>
+    """
+    
+    await page.set_content(html_content)
+    await page.wait_for_load_state("networkidle")
+    
+    # Should pass with higher tolerance
+    await visual_regression("small_change_test", tolerance=0.02)
+
+
+@pytest.mark.asyncio
+async def test_homepage_visual_major_change_should_fail(page: Page, visual_regression):
+    """
+    Test with EXTREME visual changes that will definitely exceed threshold and fail.
+    This creates a completely different page layout to guarantee failure.
+    """
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>COMPLETELY DIFFERENT PAGE</title>
+        <style>
+            body { 
+                font-family: 'Comic Sans MS', cursive; 
+                margin: 0;
+                padding: 0;
+                background: linear-gradient(45deg, #ff0000, #00ff00, #0000ff, #ffff00);
+                background-size: 400% 400%;
+                animation: gradient 15s ease infinite;
+                min-height: 100vh;
+            }
+            @keyframes gradient {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+            }
+            .container {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                text-align: center;
+            }
+            .mega-header { 
+                background-color: black;
+                color: lime;
+                padding: 50px; 
+                font-size: 48px;
+                border: 10px solid red;
+                transform: rotate(-5deg);
+                box-shadow: 20px 20px 0px purple;
+            }
+            .crazy-content { 
+                background-color: yellow; 
+                color: red;
+                padding: 40px; 
+                margin: 30px;
+                border: 5px dashed blue;
+                transform: skew(-10deg);
+                font-size: 24px;
+            }
+            .wild-button {
+                background: radial-gradient(circle, orange, purple);
+                color: white;
+                padding: 30px 60px;
+                border: 5px solid black;
+                border-radius: 50px;
+                font-size: 20px;
+                margin: 20px;
+                transform: scale(1.5);
+                box-shadow: 10px 10px 20px rgba(0,0,0,0.5);
+            }
+            .floating-box {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                width: 200px;
+                height: 200px;
+                background: conic-gradient(red, yellow, lime, aqua, blue, magenta, red);
+                border-radius: 50%;
+                animation: spin 3s linear infinite;
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="floating-box"></div>
+        <div class="container">
+            <div class="mega-header">
+                <h1>🚨 EXTREME VISUAL CHANGE! 🚨</h1>
+            </div>
+            <div class="crazy-content">
+                <h2>THIS IS COMPLETELY DIFFERENT!</h2>
+                <p>Rainbow backgrounds! Rotated elements! Animations!</p>
+                <p>This should definitely exceed any reasonable threshold!</p>
+            </div>
+            <button class="wild-button">GIANT BUTTON</button>
+            <button class="wild-button">ANOTHER GIANT BUTTON</button>
+            <div style="background: black; color: white; padding: 20px; margin: 20px; font-size: 30px;">
+                <h3>🎨 EXTRA CONTENT BLOCK 🎨</h3>
+                <p>More visual noise to ensure threshold breach!</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    await page.set_content(html_content)
+    await page.wait_for_load_state("networkidle")
+    
+    # This should DEFINITELY fail with even a very high tolerance
+    # Using pytest.raises to expect the assertion error
+    with pytest.raises(AssertionError, match="Visual regression detected"):
+        await visual_regression("major_change_test", tolerance=0.01)  # Lower tolerance to ensure failure
+
+
+@pytest.mark.asyncio
+async def test_element_specific_visual_regression(page: Page, visual_regression):
+    """
+    Test visual regression on a specific element rather than full page.
+    Tests the selector parameter of the visual regression fixture.
+    """
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Element-Specific Test</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { 
+                background-color: #4CAF50; 
+                color: white; 
+                padding: 20px; 
+                text-align: center;
+                border-radius: 8px;
+            }
+            .content { 
+                background-color: white; 
+                padding: 30px; 
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header" id="test-header">
+            <h1>Header Element Test</h1>
+        </div>
+        <div class="content">
+            <p>This content should not affect header-only screenshot</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    await page.set_content(html_content)
+    await page.wait_for_load_state("networkidle")
+    
+    # Test screenshot of specific element only
+    await visual_regression("header_element", selector="#test-header", tolerance=0.01)
+
+
+@pytest.mark.asyncio 
+async def test_cleanup_visual_files():
+    """
+    Utility test to check that visual regression files are being created.
+    This helps verify the fixture is working correctly.
+    """
+    # Check that directories exist
+    assert os.path.exists("test_artifacts/visual/visual_baselines"), "Baseline directory should exist"
+    assert os.path.exists("test_artifacts/visual/visual_current"), "Current directory should exist"
+    assert os.path.exists("test_artifacts/visual/visual_diffs"), "Diff directory should exist"
+
+    # List files in each directory for debugging
+    baseline_files = os.listdir("test_artifacts/visual/visual_baselines") if os.path.exists("test_artifacts/visual/visual_baselines") else []
+    current_files = os.listdir("test_artifacts/visual/visual_current") if os.path.exists("test_artifacts/visual/visual_current") else []
+    diff_files = os.listdir("test_artifacts/visual/visual_diffs") if os.path.exists("test_artifacts/visual/visual_diffs") else []
+
+    print(f"\n📁 Visual regression files:")
+    print(f"   Baselines: {baseline_files}")
+    print(f"   Current: {current_files}")
+    print(f"   Diffs: {diff_files}")
+</file>
+
 <file path="utils/__init__.py">
 
 </file>
@@ -3458,7 +4907,7 @@ class OllamaAIHealingService:
                 context["url"] = page.url  # <-- FIXED: no ()
                 context["title"] = await page.title()  # <-- Only title() is a coroutine
 
-                screenshot_dir = Path("screenshots")
+                screenshot_dir = Path("test_artifacts/allure/screenshots")
                 screenshot_dir.mkdir(exist_ok=True)
                 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                 screenshot_path = screenshot_dir / f"{test_name}_{timestamp}_ai_healing.png"
@@ -3764,7 +5213,7 @@ class OllamaAIHealingService:
         Returns:
             None
         """
-        healing_dir = Path("ai_healing_reports")
+        healing_dir = Path("test_artifacts/ai/ai_healing_reports")
         healing_dir.mkdir(exist_ok=True)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -4167,9 +5616,9 @@ def sync_retry(
 
 <file path="utils/decorators/screenshot_decorator.py">
 import functools
-import allure
 import os
 from pathlib import Path
+import allure
 from datetime import datetime
 
 def screenshot_on_failure(func):
@@ -4228,10 +5677,11 @@ def screenshot_on_failure(func):
         except Exception as exc:
             # Test failed - attempt to capture screenshot if enabled
             if os.getenv("AI_HEALING_ENABLED", "false").lower() == "true":
-                print("AI healing is enabled; skipping regular screenshot capture.")
+                #print("AI healing is enabled; skipping regular screenshot capture.") #broken, always takes screenshot
+                pass
             elif page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
                 try:
-                    screenshot_dir = Path("screenshots")
+                    screenshot_dir = Path("test_artifacts/allure/screenshots")
                     screenshot_dir.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                     
@@ -4267,6 +5717,734 @@ def screenshot_on_failure(func):
             raise exc
     
     return wrapper
+
+</file>
+
+<file path="utils/network_mocking.py">
+"""
+Network Interception & Mocking Utilities
+========================================
+
+This module provides network interception and API mocking capabilities for Playwright tests.
+It allows you to mock API responses, simulate network conditions, and create predictable
+test environments by controlling all network traffic.
+
+Features:
+    ✓ Mock API responses with custom JSON data
+    ✓ Simulate network delays and failures
+    ✓ Route-based request interception
+    ✓ Request/response logging and debugging
+    ✓ File-based mock data loading
+    ✓ Dynamic response generation
+    ✓ Network condition simulation (slow 3G, offline, etc.)
+
+Usage:
+    # Basic API mocking
+    @pytest.mark.asyncio
+    async def test_with_mocked_api(page, api_mocker):
+        await api_mocker.mock_get("/api/users", {"users": [{"id": 1, "name": "John"}]})
+        await page.goto("https://example.com")
+
+    # File-based mocking
+    await api_mocker.mock_from_file("/api/products", "mocks/products.json")
+
+    # Network condition simulation
+    await api_mocker.simulate_slow_network()
+
+Dependencies:
+    - playwright.async_api: Async Playwright Page and Route objects
+    - pytest_asyncio: Async fixture support
+    - json: JSON data handling
+    - pathlib: File path operations
+
+Author: Generated for Playwright network mocking
+"""
+
+import json
+import asyncio
+import pytest_asyncio
+from pathlib import Path
+from typing import Dict, Any, Optional, Union, Callable
+from playwright.async_api import Page, Route, Request
+
+
+class NetworkMocker:
+    """
+    Network mocking and interception manager for Playwright tests.
+    
+    This class provides methods to intercept network requests and return
+    mock responses, simulate network conditions, and log network activity.
+    """
+    
+    def __init__(self, page: Page):
+        """
+        Initialize the NetworkMocker with a Playwright page.
+        
+        Args:
+            page (Page): Playwright Page object to intercept requests for
+        """
+        self.page = page
+        self.mocked_routes = {}
+        self.request_log = []
+        self.response_log = []
+        self.default_delay = 0
+        
+    async def mock_get(self, url_pattern: str, response_data: Union[Dict, str], 
+                      status: int = 200, headers: Optional[Dict] = None, delay: int = 0):
+        """
+        Mock GET requests to a specific URL pattern.
+        
+        Args:
+            url_pattern (str): URL pattern to intercept (supports wildcards)
+            response_data (Union[Dict, str]): JSON data or string to return
+            status (int): HTTP status code (default: 200)
+            headers (Optional[Dict]): Custom response headers
+            delay (int): Response delay in milliseconds
+            
+        Example:
+            await api_mocker.mock_get("/api/users/*", {"users": []})
+            await api_mocker.mock_get("**/products.json", product_data, delay=500)
+        """
+        await self._mock_request("GET", url_pattern, response_data, status, headers, delay)
+        
+    async def mock_post(self, url_pattern: str, response_data: Union[Dict, str],
+                       status: int = 201, headers: Optional[Dict] = None, delay: int = 0):
+        """
+        Mock POST requests to a specific URL pattern.
+        
+        Args:
+            url_pattern (str): URL pattern to intercept
+            response_data (Union[Dict, str]): Response data to return
+            status (int): HTTP status code (default: 201)
+            headers (Optional[Dict]): Custom response headers
+            delay (int): Response delay in milliseconds
+        """
+        await self._mock_request("POST", url_pattern, response_data, status, headers, delay)
+        
+    async def mock_put(self, url_pattern: str, response_data: Union[Dict, str],
+                      status: int = 200, headers: Optional[Dict] = None, delay: int = 0):
+        """Mock PUT requests to a specific URL pattern."""
+        await self._mock_request("PUT", url_pattern, response_data, status, headers, delay)
+        
+    async def mock_delete(self, url_pattern: str, response_data: Union[Dict, str] = None,
+                         status: int = 204, headers: Optional[Dict] = None, delay: int = 0):
+        """Mock DELETE requests to a specific URL pattern."""
+        if response_data is None:
+            response_data = ""
+        await self._mock_request("DELETE", url_pattern, response_data, status, headers, delay)
+        
+    async def _mock_request(self, method: str, url_pattern: str, response_data: Union[Dict, str],
+                           status: int, headers: Optional[Dict], delay: int):
+        """
+        Internal method to set up request mocking for any HTTP method.
+        """
+        if headers is None:
+            headers = {"Content-Type": "application/json"}
+            
+        # Convert dict to JSON string if needed
+        if isinstance(response_data, dict):
+            response_body = json.dumps(response_data)
+        else:
+            response_body = str(response_data)
+            
+        async def handle_route(route: Route, request: Request):
+            # Log the intercepted request
+            self.request_log.append({
+                "method": request.method,
+                "url": request.url,
+                "headers": dict(request.headers),
+                "post_data": request.post_data
+            })
+            
+            # Apply delay if specified
+            if delay > 0:
+                await asyncio.sleep(delay / 1000)  # Convert ms to seconds
+                
+            # Fulfill the request with mock data
+            await route.fulfill(
+                status=status,
+                headers=headers,
+                body=response_body
+            )
+            
+            # Log the mock response
+            self.response_log.append({
+                "url": request.url,
+                "status": status,
+                "body": response_body[:200] + "..." if len(response_body) > 200 else response_body
+            })
+            
+        # Register the route handler
+        route_key = f"{method}:{url_pattern}"
+        self.mocked_routes[route_key] = handle_route
+        
+        await self.page.route(url_pattern, handle_route)
+        print(f"🔗 Mocked {method} {url_pattern} -> {status}")
+        
+    async def mock_from_file(self, url_pattern: str, file_path: str, 
+                            status: int = 200, headers: Optional[Dict] = None, delay: int = 0):
+        """
+        Mock API response using data from a JSON file.
+        
+        Args:
+            url_pattern (str): URL pattern to intercept
+            file_path (str): Path to JSON file containing mock data
+            status (int): HTTP status code
+            headers (Optional[Dict]): Custom response headers
+            delay (int): Response delay in milliseconds
+            
+        Example:
+            await api_mocker.mock_from_file("/api/users", "test_data/users.json")
+        """
+        try:
+            with open(file_path, 'r') as f:
+                mock_data = json.load(f)
+            await self.mock_get(url_pattern, mock_data, status, headers, delay)
+            print(f"📁 Loaded mock data from {file_path}")
+        except FileNotFoundError:
+            print(f"❌ Mock file not found: {file_path}")
+            raise
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON in mock file {file_path}: {e}")
+            raise
+            
+    async def mock_with_function(self, url_pattern: str, response_function: Callable,
+                                method: str = "GET"):
+        """
+        Mock API response using a dynamic function.
+        
+        Args:
+            url_pattern (str): URL pattern to intercept
+            response_function (Callable): Function that returns response data
+            method (str): HTTP method to mock
+            
+        Example:
+            def dynamic_response(request):
+                return {"timestamp": time.time(), "user_id": request.query_params.get("id")}
+            
+            await api_mocker.mock_with_function("/api/dynamic", dynamic_response)
+        """
+        async def handle_route(route: Route, request: Request):
+            try:
+                response_data = response_function(request)
+                if isinstance(response_data, dict):
+                    response_body = json.dumps(response_data)
+                    headers = {"Content-Type": "application/json"}
+                else:
+                    response_body = str(response_data)
+                    headers = {"Content-Type": "text/plain"}
+                    
+                await route.fulfill(
+                    status=200,
+                    headers=headers,
+                    body=response_body
+                )
+                
+                self.response_log.append({
+                    "url": request.url,
+                    "status": 200,
+                    "body": response_body[:200] + "..." if len(response_body) > 200 else response_body
+                })
+                
+            except Exception as e:
+                print(f"❌ Error in dynamic response function: {e}")
+                await route.fulfill(status=500, body=json.dumps({"error": str(e)}))
+                
+        await self.page.route(url_pattern, handle_route)
+        print(f"🔧 Dynamic mock registered for {method} {url_pattern}")
+        
+    async def simulate_network_failure(self, url_pattern: str = "**/*"):
+        """
+        Simulate network failures for matching requests.
+        
+        Args:
+            url_pattern (str): URL pattern to fail (default: all requests)
+        """
+        async def fail_route(route: Route, request: Request):
+            print(f"💥 Simulating network failure for {request.url}")
+            await route.abort("failed")
+            
+        await self.page.route(url_pattern, fail_route)
+        print(f"💥 Network failure simulation enabled for {url_pattern}")
+        
+    async def simulate_slow_network(self, delay_ms: int = 3000, url_pattern: str = "**/*"):
+        """
+        Simulate slow network conditions.
+        
+        Args:
+            delay_ms (int): Delay in milliseconds (default: 3000ms = 3s)
+            url_pattern (str): URL pattern to slow down
+        """
+        self.default_delay = delay_ms
+        
+        async def slow_route(route: Route, request: Request):
+            print(f"🐌 Simulating slow network ({delay_ms}ms) for {request.url}")
+            await asyncio.sleep(delay_ms / 1000)
+            await route.continue_()
+            
+        await self.page.route(url_pattern, slow_route)
+        print(f"🐌 Slow network simulation enabled ({delay_ms}ms delay)")
+        
+    async def simulate_offline(self):
+        """
+        Simulate offline mode by failing all network requests.
+        """
+        await self.simulate_network_failure("**/*")
+        print("📵 Offline mode simulation enabled")
+        
+    async def clear_mocks(self):
+        """
+        Clear all registered mocks and route handlers.
+        """
+        # Unroute all registered patterns
+        for route_key in self.mocked_routes.keys():
+            method, pattern = route_key.split(":", 1)
+            await self.page.unroute(pattern)
+            
+        self.mocked_routes.clear()
+        self.request_log.clear()
+        self.response_log.clear()
+        print("🧹 All mocks cleared")
+        
+    def get_request_log(self) -> list:
+        """
+        Get log of all intercepted requests.
+        
+        Returns:
+            list: List of request dictionaries
+        """
+        return self.request_log.copy()
+        
+    def get_response_log(self) -> list:
+        """
+        Get log of all mock responses.
+        
+        Returns:
+            list: List of response dictionaries
+        """
+        return self.response_log.copy()
+        
+    def print_network_activity(self):
+        """
+        Print summary of network activity for debugging.
+        """
+        print(f"\n📊 Network Activity Summary:")
+        print(f"   Requests intercepted: {len(self.request_log)}")
+        print(f"   Responses mocked: {len(self.response_log)}")
+        print(f"   Active mocks: {len(self.mocked_routes)}")
+        
+        if self.request_log:
+            print(f"\n📥 Recent Requests:")
+            for req in self.request_log[-5:]:  # Show last 5
+                print(f"   {req['method']} {req['url']}")
+                
+        if self.response_log:
+            print(f"\n📤 Recent Responses:")
+            for resp in self.response_log[-5:]:  # Show last 5
+                print(f"   {resp['status']} {resp['url']}")
+
+
+@pytest_asyncio.fixture
+async def api_mocker(page: Page):
+    """
+    Pytest fixture that provides network mocking capabilities.
+    
+    This fixture creates a NetworkMocker instance tied to the current page
+    and automatically cleans up mocks after each test.
+    
+    Args:
+        page (Page): Playwright Page object from the page fixture
+        
+    Yields:
+        NetworkMocker: Configured network mocker instance
+        
+    Example:
+        @pytest.mark.asyncio
+        async def test_api_integration(page, api_mocker):
+            # Mock the API response
+            await api_mocker.mock_get("/api/users", {"users": [{"id": 1, "name": "John"}]})
+            
+            # Navigate to page that calls the API
+            await page.goto("https://example.com")
+            
+            # Verify the page behaves correctly with mocked data
+            assert await page.locator(".user-name").text_content() == "John"
+    """
+    mocker = NetworkMocker(page)
+    
+    yield mocker
+    
+    # Cleanup after test
+    await mocker.clear_mocks()
+
+
+def create_mock_data_file(file_path: str, data: Dict[str, Any]):
+    """
+    Utility function to create mock data files for testing.
+    
+    Args:
+        file_path (str): Path where the mock file should be created
+        data (Dict[str, Any]): Data to write to the file
+        
+    Example:
+        create_mock_data_file("test_data/users.json", {
+            "users": [
+                {"id": 1, "name": "John Doe", "email": "john@example.com"},
+                {"id": 2, "name": "Jane Smith", "email": "jane@example.com"}
+            ]
+        })
+    """
+    # Create directory if it doesn't exist
+    Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(file_path, 'w') as f:
+        json.dump(data, f, indent=2)
+        
+    print(f"📁 Mock data file created: {file_path}")
+
+
+# Common mock data templates
+MOCK_TEMPLATES = {
+    "users": {
+        "users": [
+            {"id": 1, "name": "John Doe", "email": "john@example.com", "active": True},
+            {"id": 2, "name": "Jane Smith", "email": "jane@example.com", "active": True},
+            {"id": 3, "name": "Bob Johnson", "email": "bob@example.com", "active": False}
+        ]
+    },
+    "products": {
+        "products": [
+            {"id": 1, "name": "Laptop", "price": 999.99, "category": "Electronics"},
+            {"id": 2, "name": "Coffee Mug", "price": 12.99, "category": "Kitchen"},
+            {"id": 3, "name": "Book", "price": 24.99, "category": "Education"}
+        ]
+    },
+    "empty_list": {"data": [], "total": 0},
+    "error": {"error": "Something went wrong", "code": 500},
+    "loading": {"status": "loading", "message": "Please wait..."}
+}
+
+
+def get_mock_template(template_name: str) -> Dict[str, Any]:
+    """
+    Get a predefined mock data template.
+    
+    Args:
+        template_name (str): Name of the template (users, products, empty_list, error, loading)
+        
+    Returns:
+        Dict[str, Any]: Mock data template
+        
+    Example:
+        user_data = get_mock_template("users")
+        await api_mocker.mock_get("/api/users", user_data)
+    """
+    return MOCK_TEMPLATES.get(template_name, {}).copy()
+</file>
+
+<file path="utils/visual_regression.py">
+"""
+Visual Regression Testing Utilities
+===================================
+
+This module provides visual regression testing capabilities for Playwright tests.
+It includes fixtures and helper functions for comparing screenshots with tolerance
+thresholds and automatic diff generation.
+
+Features:
+    ✓ Baseline screenshot management
+    ✓ Tolerance-based comparison (percentage of different pixels)
+    ✓ Automatic diff image generation
+    ✓ Full page or element-specific screenshots
+    ✓ Async/await support for Playwright
+    ✓ Integration with pytest fixtures
+
+Usage:
+    # In your test file
+    @pytest.mark.asyncio
+    async def test_homepage_visual(page, visual_regression):
+        await page.goto("https://example.com")
+        await visual_regression("homepage", tolerance=0.02)
+
+    # Element-specific screenshot
+    await visual_regression("header", selector="#header", tolerance=0.01)
+
+Directory Structure:
+    visual_baselines/  - Reference screenshots
+    visual_current/    - Current test screenshots  
+    visual_diffs/      - Diff images when tests fail
+
+Dependencies:
+    - playwright.async_api: Async Playwright Page object
+    - pytest_asyncio: Async fixture support
+    - PIL (Pillow): Image manipulation and comparison
+    - numpy: Efficient array operations for pixel comparison
+    - opencv-python (cv2): Advanced diff visualization with highlighted regions
+
+Author: Generated for Playwright visual regression testing
+"""
+
+import os
+import pytest
+import pytest_asyncio
+import numpy as np
+from playwright.async_api import Page
+from PIL import Image, ImageChops
+
+# Directory configuration for visual regression files
+BASELINE_DIR = "test_artifacts/visual/visual_baselines"
+CURRENT_DIR = "test_artifacts/visual/visual_current"
+DIFF_DIR = "test_artifacts/visual/visual_diffs"
+
+# Ensure directories exist
+os.makedirs(BASELINE_DIR, exist_ok=True)
+os.makedirs(CURRENT_DIR, exist_ok=True)
+os.makedirs(DIFF_DIR, exist_ok=True)
+
+
+def compare_images(baseline_path, current_path, diff_path, tolerance=0.01):
+    """
+    Compare two images with a tolerance threshold for pixel differences.
+    
+    This function loads two images, computes their pixel-wise difference,
+    and determines if the percentage of different pixels exceeds the tolerance.
+    If differences exceed tolerance, a diff image is saved highlighting changes.
+    
+    Args:
+        baseline_path (str): Path to the baseline/reference image
+        current_path (str): Path to the current test screenshot
+        diff_path (str): Path where diff image should be saved if different
+        tolerance (float): Maximum allowed fraction of different pixels (0.01 = 1%)
+        
+    Returns:
+        tuple: (matches: bool, diff_ratio: float)
+            - matches: True if images are within tolerance, False otherwise
+            - diff_ratio: Actual fraction of pixels that differ
+            
+    Example:
+        matches, ratio = compare_images("baseline.png", "current.png", "diff.png", 0.02)
+        if not matches:
+            print(f"Images differ by {ratio:.2%}")
+    """
+    try:
+        # Load images and convert to RGB for consistent comparison
+        img1 = Image.open(baseline_path).convert("RGB")
+        img2 = Image.open(current_path).convert("RGB")
+        
+        # Ensure images are the same size
+        if img1.size != img2.size:
+            print(f"Warning: Image size mismatch - baseline: {img1.size}, current: {img2.size}")
+            # Resize current to match baseline
+            img2 = img2.resize(img1.size, Image.Resampling.LANCZOS)
+        
+        # Compute pixel-wise difference
+        diff = ImageChops.difference(img1, img2)
+        diff_array = np.array(diff)
+        
+        # Count pixels that have any difference (non-zero in any channel)
+        # diff_array.shape is (height, width, channels)
+        diff_pixels = np.count_nonzero(np.any(diff_array, axis=2))
+        total_pixels = diff_array.shape[0] * diff_array.shape[1]
+        
+        # Calculate the ratio of different pixels
+        diff_ratio = diff_pixels / total_pixels if total_pixels > 0 else 0
+        
+        # Save diff image if differences exceed tolerance
+        if diff_ratio > tolerance:
+            diff.save(diff_path)
+            return False, diff_ratio
+            
+        return True, diff_ratio
+        
+    except Exception as e:
+        print(f"Error comparing images: {e}")
+        return False, 1.0  # Assume complete difference on error
+
+
+def get_screenshot_paths(name):
+    """
+    Generate file paths for baseline, current, and diff screenshots.
+    
+    Args:
+        name (str): Base name for the screenshot files
+        
+    Returns:
+        tuple: (baseline_path, current_path, diff_path)
+    """
+    baseline_path = os.path.join(BASELINE_DIR, f"{name}.png")
+    current_path = os.path.join(CURRENT_DIR, f"{name}.png") 
+    diff_path = os.path.join(DIFF_DIR, f"{name}_diff.png")
+    
+    return baseline_path, current_path, diff_path
+
+
+@pytest_asyncio.fixture
+async def visual_regression(page: Page):
+    """
+    Async pytest fixture for visual regression testing with Playwright.
+    
+    This fixture provides a comparison function that can take screenshots
+    of full pages or specific elements, compare them against baselines,
+    and fail tests when visual changes exceed tolerance thresholds.
+    
+    The fixture handles:
+    - Baseline creation on first run
+    - Screenshot capture (full page or element-specific)
+    - Image comparison with tolerance
+    - Diff generation for failed comparisons
+    - Clear error messages with diff percentages
+    
+    Args:
+        page (Page): Playwright Page object from the page fixture
+        
+    Yields:
+        function: Async comparison function with signature:
+            async def _compare(name, selector=None, full_page=True, tolerance=0.01)
+            
+    Example Usage:
+        @pytest.mark.asyncio
+        async def test_homepage(page, visual_regression):
+            await page.goto("https://example.com")
+            
+            # Full page screenshot with 2% tolerance
+            await visual_regression("homepage", tolerance=0.02)
+            
+            # Element-specific screenshot
+            await visual_regression("header", selector="#main-header", tolerance=0.01)
+    """
+    
+    async def _compare(name: str, selector: str = None, full_page: bool = True, tolerance: float = 0.01):
+        """
+        Compare current page/element screenshot against baseline.
+        
+        Args:
+            name (str): Unique name for this visual test (used for file naming)
+            selector (str, optional): CSS selector for element-specific screenshot
+            full_page (bool): Whether to capture full page (ignored if selector provided)
+            tolerance (float): Maximum allowed difference ratio (0.01 = 1%)
+            
+        Raises:
+            AssertionError: If visual differences exceed tolerance threshold
+            pytest.skip: On first run when baseline is created
+        """
+        baseline_path, current_path, diff_path = get_screenshot_paths(name)
+        
+        try:
+            # Capture screenshot based on selector or full page
+            if selector:
+                await page.locator(selector).screenshot(path=current_path)
+            else:
+                await page.screenshot(path=current_path, full_page=full_page)
+                
+        except Exception as e:
+            pytest.fail(f"Failed to capture screenshot for '{name}': {e}")
+        
+        # First run: create baseline and skip test
+        if not os.path.exists(baseline_path):
+            try:
+                os.rename(current_path, baseline_path)
+                pytest.skip(f"✅ Baseline created for '{name}'. Re-run test to perform comparison.")
+            except Exception as e:
+                pytest.fail(f"Failed to create baseline for '{name}': {e}")
+        
+        # Subsequent runs: compare against baseline
+        try:
+            matches, diff_ratio = compare_images(baseline_path, current_path, diff_path, tolerance)
+            
+            if not matches:
+                # Clean up current screenshot on failure (keep baseline and diff)
+                if os.path.exists(current_path):
+                    os.remove(current_path)
+                    
+                assert False, (
+                    f"🔍 Visual regression detected for '{name}'\n"
+                    f"   Difference: {diff_ratio:.2%} (threshold: {tolerance:.2%})\n"
+                    f"   Diff image: {diff_path}\n"
+                    f"   Baseline: {baseline_path}"
+                )
+            else:
+                # Test passed - clean up current screenshot
+                if os.path.exists(current_path):
+                    os.remove(current_path)
+                    
+                print(f"✅ Visual regression passed for '{name}' (diff: {diff_ratio:.2%})")
+                
+        except AssertionError:
+            # Re-raise assertion errors (test failures)
+            raise
+        except Exception as e:
+            pytest.fail(f"Error during visual comparison for '{name}': {e}")
+    
+    return _compare
+
+
+def reset_baseline(name: str):
+    """
+    Utility function to reset a specific baseline image.
+    Useful for updating baselines when intentional changes are made.
+    
+    Args:
+        name (str): Name of the baseline to reset
+        
+    Returns:
+        bool: True if baseline was removed, False if it didn't exist
+    """
+    baseline_path = os.path.join(BASELINE_DIR, f"{name}.png")
+    
+    if os.path.exists(baseline_path):
+        os.remove(baseline_path)
+        print(f"🗑️  Baseline reset for '{name}'")
+        return True
+    else:
+        print(f"⚠️  No baseline found for '{name}'")
+        return False
+
+
+def reset_all_baselines():
+    """
+    Utility function to reset all baseline images.
+    Use with caution - this will cause all visual tests to recreate baselines.
+    
+    Returns:
+        int: Number of baselines that were removed
+    """
+    if not os.path.exists(BASELINE_DIR):
+        print("⚠️  No baseline directory found")
+        return 0
+        
+    baselines = [f for f in os.listdir(BASELINE_DIR) if f.endswith('.png')]
+    
+    for baseline in baselines:
+        os.remove(os.path.join(BASELINE_DIR, baseline))
+        
+    print(f"🗑️  Reset {len(baselines)} baselines")
+    return len(baselines)
+
+
+def list_visual_files():
+    """
+    Utility function to list all visual regression files.
+    Helpful for debugging and understanding test state.
+    
+    Returns:
+        dict: Dictionary with lists of files in each directory
+    """
+    result = {
+        'baselines': [],
+        'current': [],
+        'diffs': []
+    }
+    
+    if os.path.exists(BASELINE_DIR):
+        result['baselines'] = [f for f in os.listdir(BASELINE_DIR) if f.endswith('.png')]
+        
+    if os.path.exists(CURRENT_DIR):
+        result['current'] = [f for f in os.listdir(CURRENT_DIR) if f.endswith('.png')]
+        
+    if os.path.exists(DIFF_DIR):
+        result['diffs'] = [f for f in os.listdir(DIFF_DIR) if f.endswith('.png')]
+    
+    return result
 </file>
 
 </source>

@@ -17,6 +17,9 @@ Test Categories:
     ✓ Real-time data scenarios
 
 Run with: pytest tests/api/test_api_mocking.py -v
+
+Author: PMAC
+Date: [2025-08-18]
 """
 
 import pytest

@@ -1,0 +1,50 @@
+[
+  {
+    "url": "goto:https://www.hudl.com/login",
+    "timestamp": 1755637293.940705,
+    "page_load_time": 1760,
+    "dom_content_loaded": 1668,
+    "first_contentful_paint": 1732,
+    "largest_contentful_paint": 1732,
+    "first_input_delay": null,
+    "cumulative_layout_shift": 2.1484614418058115e-05,
+    "time_to_first_byte": 1222.7999999523163,
+    "js_heap_used_size": 1485564,
+    "js_heap_total_size": 3190744,
+    "task_duration": null,
+    "network_requests": 3,
+    "total_bytes_transferred": 309
+  },
+  {
+    "url": "user_menu_opened",
+    "timestamp": 1755637303.626283,
+    "page_load_time": 2120,
+    "dom_content_loaded": 1623,
+    "first_contentful_paint": null,
+    "largest_contentful_paint": 1688,
+    "first_input_delay": 1.6999998092651367,
+    "cumulative_layout_shift": 0.186838623046875,
+    "time_to_first_byte": 490.40000009536743,
+    "js_heap_used_size": 63152472,
+    "js_heap_total_size": 76412516,
+    "task_duration": null,
+    "network_requests": 45,
+    "total_bytes_transferred": 13455
+  },
+  {
+    "url": "goto:https://www.hudl.com/",
+    "timestamp": 1755637315.518896,
+    "page_load_time": 745,
+    "dom_content_loaded": 398,
+    "first_contentful_paint": 444,
+    "largest_contentful_paint": 444,
+    "first_input_delay": null,
+    "cumulative_layout_shift": 0.026145164766868723,
+    "time_to_first_byte": 134.5,
+    "js_heap_used_size": 68560331,
+    "js_heap_total_size": 102025403,
+    "task_duration": null,
+    "network_requests": 72,
+    "total_bytes_transferred": 12927
+  }
+]

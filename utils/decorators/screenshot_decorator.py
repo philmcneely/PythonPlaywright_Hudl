@@ -1,8 +1,8 @@
 import functools
 import os
-from pathlib import Path
 import allure
 from datetime import datetime
+from config.artifact_paths import SCREENSHOT_DIR
 
 def screenshot_on_failure(func):
     """
@@ -64,7 +64,7 @@ def screenshot_on_failure(func):
                 pass
             elif page and os.getenv("SKIP_SCREENSHOTS", "0") != "1":
                 try:
-                    screenshot_dir = Path("test_artifacts/allure/screenshots")
+                    screenshot_dir = SCREENSHOT_DIR
                     screenshot_dir.mkdir(exist_ok=True)
                     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
                     

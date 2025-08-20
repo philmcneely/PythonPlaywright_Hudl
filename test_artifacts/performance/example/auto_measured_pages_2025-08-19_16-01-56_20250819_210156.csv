@@ -1,0 +1,4 @@
+url,timestamp,page_load_time,dom_content_loaded,first_contentful_paint,largest_contentful_paint,first_input_delay,cumulative_layout_shift,time_to_first_byte,js_heap_used_size,js_heap_total_size,task_duration,network_requests,total_bytes_transferred
+goto:https://www.hudl.com/login,1755637293.940705,1760,1668,1732,1732,,2.1484614418058115e-05,1222.7999999523163,1485564,3190744,,3,309
+user_menu_opened,1755637303.626283,2120,1623,,1688,1.6999998092651367,0.186838623046875,490.40000009536743,63152472,76412516,,45,13455
+goto:https://www.hudl.com/,1755637315.518896,745,398,444,444,,0.026145164766868723,134.5,68560331,102025403,,72,12927

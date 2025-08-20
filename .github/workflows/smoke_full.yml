@@ -8,9 +8,14 @@ on:
     types: [opened, reopened, synchronize]
 
 permissions:
-  contents: read
+  contents: write
   issues: write
   pull-requests: write
+  pages: write
+  id-token: write
+
+env:
+  ALLURE_VERSION: "2.27.0"
 
 jobs:
   setup:
@@ -19,16 +24,16 @@ jobs:
       python-cache-key: ${{ steps.cache-key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Generate cache key
         id: cache-key
         run: echo "key=python-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}" >> $GITHUB_OUTPUT
-      
+
       - name: Cache Python dependencies
         uses: actions/cache@v3
         id: cache-deps
@@ -37,7 +42,7 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
           restore-keys: |
             python-${{ runner.os }}-
-      
+
       - name: Install Python dependencies
         if: steps.cache-deps.outputs.cache-hit != 'true'
         run: |
@@ -52,17 +57,6 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
 
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-
       - name: Cache Playwright browsers
         uses: actions/cache@v3
         id: cache-browsers
@@ -71,7 +65,7 @@ jobs:
           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
           restore-keys: |
             playwright-browsers-${{ runner.os }}-
-      
+
       - name: Install Playwright browsers
         if: steps.cache-browsers.outputs.cache-hit != 'true'
         run: python -m playwright install --with-deps
@@ -100,7 +94,7 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
       OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
@@ -108,12 +102,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Restore Python dependencies
         uses: actions/cache@v3
         with:
@@ -121,7 +115,7 @@ jobs:
           key: ${{ needs.setup.outputs.python-cache-key }}
           restore-keys: |
             python-${{ runner.os }}-
-      
+
       - name: Install dependencies (from cache)
         run: |
           python -m pip install --upgrade pip
@@ -135,17 +129,6 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
 
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-      
       - name: Restore Playwright browsers
         uses: actions/cache@v3
         with:
@@ -153,75 +136,293 @@ jobs:
           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
           restore-keys: |
             playwright-browsers-${{ runner.os }}-
-      
+
       - name: Install Allure commandline
         run: |
           sudo apt-get update
           sudo apt-get install -y default-jre
-          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-          tar -xzf allure-2.27.0.tgz
-          sudo mv allure-2.27.0 /opt/allure
+          wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure-${ALLURE_VERSION}.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
           allure --version
 
+      - name: Compute Pages paths (smoke)
+        id: paths
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_PATH="pr/${{ github.head_ref }}"
+          else
+            BASE_PATH=""
+          fi
+          echo "CHROMIUM_PATH=${BASE_PATH:+$BASE_PATH/}smoke/chromium" >> $GITHUB_OUTPUT
+          echo "FIREFOX_PATH=${BASE_PATH:+$BASE_PATH/}smoke/firefox" >> $GITHUB_OUTPUT
+
+      # ---------- Smoke Chromium ----------
+      - name: Restore history from gh-pages (smoke-chromium)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          git init ghp-read
+          cd ghp-read
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout gh-pages || echo "No gh-pages yet"
+          cd ..
+          if [ -d "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
+
       - name: Run chromium smoke tests
+        id: run_smoke
         run: |
           mkdir -p test_artifacts/allure/allure-report
-          mkdir -p test_artifacts/allure/allure-results
+          mkdir -p test_artifacts/allure/allure-results/history
           mkdir -p test_artifacts/allure/screenshots
+          cat > test_artifacts/allure/allure-results/environment.properties <<EOF
+          browser=chromium
+          headless=true
+          baseUrl=$BASE_URL
+          commit=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          runId=$GITHUB_RUN_ID
+          testSuite=smoke
+          EOF
           AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
-          
-      - name: Run firefox smoke tests
-        run: |
-          mkdir -p test_artifacts/allure/allure-report
-          mkdir -p test_artifacts/allure/allure-results
-          mkdir -p test_artifacts/allure/screenshots
-          AI_HEALING_ENABLED=false BROWSER=firefox HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
 
-      # Some kind of GHA error runnign webkit, defer for now - common fixes didnt work
-      # - name: Run webkit smoke tests
-      #   run: |
-      #     mkdir -p test_artifacts/allure/allure-report
-      #     mkdir -p test_artifacts/allure/allure-results
-      #     mkdir -p test_artifacts/allure/screenshots
-      #     BROWSER=webkit HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
-
-      - name: Generate Test Results
+      - name: Generate Test Results (smoke-chromium)
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_smoke.html
 
-      - name: Upload test report & screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Publish Smoke Report (Chromium) + History to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: index_smoke.html
-          path: test_artifacts/allure/allure-report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}
+          keep_files: true
 
-      - name: Comment PR with test summary
-        if: github.event.pull_request.head.repo.full_name == github.repository
+      - name: Persist history to gh-pages (smoke-chromium)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}/history
+          keep_files: true
+
+      - name: Compute Smoke Status
+        if: always()
+        id: smoke_status
+        run: |
+          if [ "${{ steps.run_smoke.outcome }}" = "success" ]; then
+            echo "label=✅ PASS" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
+      # ---------- Smoke Firefox ----------
+      - name: Restore history from gh-pages (smoke-firefox)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          if [ -d "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
+
+      - name: Run firefox smoke tests
+        run: |
+          mkdir -p test_artifacts/allure/allure-report
+          mkdir -p test_artifacts/allure/allure-results/history
+          mkdir -p test_artifacts/allure/screenshots
+          cat > test_artifacts/allure/allure-results/environment.properties <<EOF
+          browser=firefox
+          headless=true
+          baseUrl=$BASE_URL
+          commit=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          runId=$GITHUB_RUN_ID
+          testSuite=smoke
+          EOF
+          AI_HEALING_ENABLED=false BROWSER=firefox HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke -n auto
+
+      - name: Generate Test Results (smoke-firefox)
+        if: always()
+        run: |
+          allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
+
+      - name: Publish Smoke Report (Firefox) + History to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}
+          keep_files: true
+
+      - name: Persist history to gh-pages (smoke-firefox)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
+          keep_files: true
+
+      # ---------- PR Dashboard Generation ----------
+      - name: Clean pr_dashboard
+        run: rm -rf pr_dashboard && mkdir pr_dashboard
+
+      - name: Generate dashboard HTML
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
+          cat > pr_dashboard/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>PR Test Dashboard</title>
+            <style>
+              :root { color-scheme: light dark; }
+              body { font-family: Arial, Helvetica, sans-serif; margin: 40px; line-height: 1.45; }
+              h1 { margin-bottom: 10px; }
+              .muted { color: #888; font-size: 0.95rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 24px; }
+              .card { border: 1px solid #ddd; border-radius: 10px; padding: 18px; }
+              .card h3 { margin-top: 0; margin-bottom: 10px; }
+              a.btn { display: block; margin: 8px 0; padding: 10px 12px; text-decoration: none; border-radius: 6px; background: #f5f5f5; color: inherit; }
+              a.btn:hover { background: #e9e9e9; }
+              .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+              code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>PR Test Dashboard</h1>
+            <div class="muted">
+              Branch: <code id="branch"></code> · Run: <code id="run"></code> · Commit: <code id="sha"></code>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <h3>🔥 Smoke Tests</h3>
+                <a id="smoke-chromium" class="btn" href="#">Chromium Smoke</a>
+                <a id="smoke-firefox" class="btn" href="#">Firefox Smoke</a>
+              </div>
+              <div class="card">
+                <h3>🎯 Full Test Suite</h3>
+                <a id="full-chromium" class="btn" href="#">Chromium Full</a>
+                <a id="full-firefox" class="btn" href="#">Firefox Full</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              Main dashboard: <a id="main-dashboard" href="#">View</a>
+            </div>
+
+            <script>
+              (function () {
+                const BASE = "{{BASE_URL}}";
+                const branch = "{{BRANCH}}";
+                const runId = "{{RUN_ID}}";
+                const sha = "{{SHA}}";
+
+                document.getElementById('branch').textContent = branch;
+                document.getElementById('run').textContent = runId;
+                document.getElementById('sha').textContent = sha.slice(0, 9);
+
+                document.getElementById('smoke-chromium').href = BASE + "/smoke/chromium/";
+                document.getElementById('smoke-firefox').href = BASE + "/smoke/firefox/";
+                document.getElementById('full-chromium').href = BASE + "/full/chromium/";
+                document.getElementById('full-firefox').href = BASE + "/full/firefox/";
+                document.getElementById('main-dashboard').href = "https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+              })();
+            </script>
+          </body>
+          </html>
+          EOF
+          # Inject dynamic vars
+          sed -i "s|{{BASE_URL}}|${BASE_URL}|g" pr_dashboard/index.html
+          sed -i "s|{{BRANCH}}|${BRANCH}|g" pr_dashboard/index.html
+          sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
+          sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
+
+      - name: Write dashboard status file
+        if: github.event_name == 'pull_request'
+        run: |
+          STATUS="FAIL"
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="PASS"
+          fi
+          echo "$STATUS" > pr_dashboard/status.txt
+          echo "${GITHUB_SHA}" > pr_dashboard/sha.txt
+
+      - name: Publish PR mini-dashboard
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: pr_dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
+          keep_files: true
+
+      - name: Comment PR with Smoke report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All smoke tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some smoke tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const smokeStatus = `${{ toJSON(steps.smoke_status.outputs.label) }}`;
+            const body = [
+              `✅ Smoke reports published:`,
+              `- Chromium: ${baseUrl}/smoke/chromium/`,
+              `- Firefox: ${baseUrl}/smoke/firefox/`,
+              ``,
+              `Status: ${smokeStatus}`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/${{ github.sha }}/`
+            ].join('\n');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
-            })
-        env:
-          JOB_STATUS: ${{ job.status }}
+              body
+            });
+
+      - name: Export Smoke URLs
+        id: smoke_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/smoke/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/smoke/firefox/" >> $GITHUB_OUTPUT
+
+      - name: Smoke report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Smoke: ${{ steps.smoke_urls.outputs.chromium_url }}"
+          echo "Firefox Smoke:  ${{ steps.smoke_urls.outputs.firefox_url }}"
+          echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}"
+          {
+            echo "### Smoke report links";
+            echo "";
+            echo "- Chromium: ${{ steps.smoke_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.smoke_urls.outputs.firefox_url }}";
+            echo "";
+            echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}";
+          } >> $GITHUB_STEP_SUMMARY
 
   full:
     runs-on: ubuntu-latest
     needs: [setup, smoke]
     timeout-minutes: 60
+    outputs:
+      chromium_url: ${{ steps.full_urls.outputs.chromium_url }}
+      firefox_url: ${{ steps.full_urls.outputs.firefox_url }}
+      dashboard_url: ${{ steps.full_urls.outputs.dashboard_url }}
     env:
       USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
       USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
@@ -243,7 +444,7 @@ jobs:
       USER_COACH_INITIALS: ${{ secrets.USER_COACH_INITIALS }}
       BASE_URL: ${{ secrets.BASE_URL }}
       API_LOGIN_URL: ${{ secrets.API_LOGIN_URL }}
-      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}  
+      AI_HEALING_ENABLED: ${{ secrets.AI_HEALING_ENABLED }}
       AI_HEALING_ENDPOINT: ${{ secrets.AI_HEALING_ENDPOINT }}
       AI_HEALING_CONFIDENCE: ${{ secrets.AI_HEALING_CONFIDENCE }}
       OLLAMA_MODEL: ${{ secrets.OLLAMA_MODEL }}
@@ -251,12 +452,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-      
+
       - name: Restore Python dependencies
         uses: actions/cache@v3
         with:
@@ -264,7 +465,7 @@ jobs:
           key: ${{ needs.setup.outputs.python-cache-key }}
           restore-keys: |
             python-${{ runner.os }}-
-      
+
       - name: Install dependencies (from cache)
         run: |
           python -m pip install --upgrade pip
@@ -278,17 +479,6 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           pip install ollama
 
-      # - name: Start Ollama service
-      #   run: |
-      #     nohup ollama serve > ollama.log 2>&1 &
-      #     sleep 10  # wait for service to start
-
-      # - name: Pull Ollama model from secret
-      #   run: ollama pull ${{ secrets.OLLAMA_MODEL }}
-
-      # - name: List Ollama models
-      #   run: ollama list
-      
       - name: Restore Playwright browsers
         uses: actions/cache@v3
         with:
@@ -296,93 +486,418 @@ jobs:
           key: playwright-browsers-${{ runner.os }}-${{ hashFiles('requirements_with_versions.txt') }}
           restore-keys: |
             playwright-browsers-${{ runner.os }}-
-      
+
       - name: Install Allure commandline
         run: |
           sudo apt-get update
           sudo apt-get install -y default-jre
-          wget https://github.com/allure-framework/allure2/releases/download/2.27.0/allure-2.27.0.tgz
-          tar -xzf allure-2.27.0.tgz
-          sudo mv allure-2.27.0 /opt/allure
+          wget https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz
+          tar -xzf allure-${ALLURE_VERSION}.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
           sudo ln -s /opt/allure/bin/allure /usr/bin/allure
           allure --version
 
+      - name: Compute Pages paths (full)
+        id: paths
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_PATH="pr/${{ github.head_ref }}"
+          else
+            BASE_PATH=""
+          fi
+          echo "CHROMIUM_PATH=${BASE_PATH:+$BASE_PATH/}full/chromium" >> $GITHUB_OUTPUT
+          echo "FIREFOX_PATH=${BASE_PATH:+$BASE_PATH/}full/firefox" >> $GITHUB_OUTPUT
+
+      # ---------- Full Chromium ----------
+      - name: Restore history from gh-pages (full-chromium)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          git init ghp-read
+          cd ghp-read
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout gh-pages || echo "No gh-pages yet"
+          cd ..
+          if [ -d "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.CHROMIUM_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
+
       - name: Run chromium full test suite
+        id: run_full
         run: |
           mkdir -p test_artifacts/allure/allure-report
-          mkdir -p test_artifacts/allure/allure-results
+          mkdir -p test_artifacts/allure/allure-results/history
           mkdir -p test_artifacts/allure/screenshots
-          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m  "login and not (smoke or danger)" -n auto
+          cat > test_artifacts/allure/allure-results/environment.properties <<EOF
+          browser=chromium
+          headless=true
+          baseUrl=$BASE_URL
+          commit=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          runId=$GITHUB_RUN_ID
+          testSuite=full
+          EOF
+          AI_HEALING_ENABLED=false HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m "login and not (smoke or danger)" -n auto
 
-      - name: Generate Test Results
+      - name: Generate Test Results (full-chromium)
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_chromium.html
 
-      - name: Upload test report & screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Publish Full Report (Chromium) + History to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: index_full_chromium.html
-          path: test_artifacts/allure/allure-report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}
+          keep_files: true
 
-      - name: Comment PR with test summary
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v7
+      - name: Persist history to gh-pages (full-chromium)
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All chromium login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some chromium login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: summary
-            })
-        env:
-          JOB_STATUS: ${{ job.status }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}/history
+          keep_files: true
 
-      # Originally was going to run just compatibility tests, but decided for now, 
-      # with small suite to run full.  this should be broken out to a seperate job likely in future
+      # ---------- Full Firefox ----------
+      - name: Restore history from gh-pages (full-firefox)
+        run: |
+          mkdir -p test_artifacts/allure/allure-results/history
+          if [ -d "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history" ]; then
+            cp -r "ghp-read/${{ steps.paths.outputs.FIREFOX_PATH }}/history/"* test_artifacts/allure/allure-results/history/ || true
+          fi
+
       - name: Run firefox full tests
         run: |
           mkdir -p test_artifacts/allure/allure-report
-          mkdir -p test_artifacts/allure/allure-results
+          mkdir -p test_artifacts/allure/allure-results/history
           mkdir -p test_artifacts/allure/screenshots
+          cat > test_artifacts/allure/allure-results/environment.properties <<EOF
+          browser=firefox
+          headless=true
+          baseUrl=$BASE_URL
+          commit=$GITHUB_SHA
+          branch=$GITHUB_REF_NAME
+          runId=$GITHUB_RUN_ID
+          testSuite=full
+          EOF
           AI_HEALING_ENABLED=false BROWSER=firefox HEADLESS=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m "login and not (smoke or danger)" -n auto
 
-      - name: Generate Test Results
+      - name: Generate Test Results (full-firefox)
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
-          mv test_artifacts/allure/allure-report/index.html test_artifacts/allure/allure-report/index_full_firefox.html
 
-      - name: Upload test report & screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
+      - name: Publish Full Report (Firefox) + History to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
         with:
-          name: index_full_firefox.html
-          path: test_artifacts/allure/allure-report
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}
+          keep_files: true
 
-      - name: Comment PR with test summary
-        if: github.event.pull_request.head.repo.full_name == github.repository
+      - name: Persist history to gh-pages (full-firefox)
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: test_artifacts/allure/allure-report/history
+          destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
+          keep_files: true
+
+      # ---------- PR Dashboard Generation ----------
+      - name: Clean pr_dashboard
+        run: rm -rf pr_dashboard && mkdir pr_dashboard
+
+      - name: Generate dashboard HTML
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
+          cat > pr_dashboard/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>PR Test Dashboard</title>
+            <style>
+              :root { color-scheme: light dark; }
+              body { font-family: Arial, Helvetica, sans-serif; margin: 40px; line-height: 1.45; }
+              h1 { margin-bottom: 10px; }
+              .muted { color: #888; font-size: 0.95rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 24px; }
+              .card { border: 1px solid #ddd; border-radius: 10px; padding: 18px; }
+              .card h3 { margin-top: 0; margin-bottom: 10px; }
+              a.btn { display: block; margin: 8px 0; padding: 10px 12px; text-decoration: none; border-radius: 6px; background: #f5f5f5; color: inherit; }
+              a.btn:hover { background: #e9e9e9; }
+              .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+              code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>PR Test Dashboard</h1>
+            <div class="muted">
+              Branch: <code id="branch"></code> · Run: <code id="run"></code> · Commit: <code id="sha"></code>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <h3>🔥 Smoke Tests</h3>
+                <a id="smoke-chromium" class="btn" href="#">Chromium Smoke</a>
+                <a id="smoke-firefox" class="btn" href="#">Firefox Smoke</a>
+              </div>
+              <div class="card">
+                <h3>🎯 Full Test Suite</h3>
+                <a id="full-chromium" class="btn" href="#">Chromium Full</a>
+                <a id="full-firefox" class="btn" href="#">Firefox Full</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              Main dashboard: <a id="main-dashboard" href="#">View</a>
+            </div>
+
+            <script>
+              (function () {
+                const BASE = "{{BASE_URL}}";
+                const branch = "{{BRANCH}}";
+                const runId = "{{RUN_ID}}";
+                const sha = "{{SHA}}";
+
+                document.getElementById('branch').textContent = branch;
+                document.getElementById('run').textContent = runId;
+                document.getElementById('sha').textContent = sha.slice(0, 9);
+
+                document.getElementById('smoke-chromium').href = BASE + "/smoke/chromium/";
+                document.getElementById('smoke-firefox').href = BASE + "/smoke/firefox/";
+                document.getElementById('full-chromium').href = BASE + "/full/chromium/";
+                document.getElementById('full-firefox').href = BASE + "/full/firefox/";
+                document.getElementById('main-dashboard').href = "https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+              })();
+            </script>
+          </body>
+          </html>
+          EOF
+          # Inject dynamic vars
+          sed -i "s|{{BASE_URL}}|${BASE_URL}|g" pr_dashboard/index.html
+          sed -i "s|{{BRANCH}}|${BRANCH}|g" pr_dashboard/index.html
+          sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
+          sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
+
+      - name: Write dashboard status file
+        if: github.event_name == 'pull_request'
+        run: |
+          STATUS="FAIL"
+          if [ "${{ job.status }}" = "success" ]; then
+            STATUS="PASS"
+          fi
+          echo "$STATUS" > pr_dashboard/status.txt
+          echo "${GITHUB_SHA}" > pr_dashboard/sha.txt
+
+      - name: Publish PR mini-dashboard
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: pr_dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
+          keep_files: true
+
+      - name: Compute Full Status
+        if: always()
+        id: full_status
+        run: |
+          if [ "${{ steps.run_full.outcome }}" = "success" ]; then
+            echo "label=✅ PASS" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment PR with Full report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const status = process.env.JOB_STATUS || 'unknown';
-            const summary = status === 'success'
-              ? '✅ All firefox login tests passed! [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})'
-              : '❌ Some firefox login tests failed. [View report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const fullStatus = `${{ toJSON(steps.full_status.outputs.label) }}`;
+            const body = [
+              `📊 Full reports published:`,
+              `- Chromium: ${baseUrl}/full/chromium/`,
+              `- Firefox: ${baseUrl}/full/firefox/`,
+              ``,
+              `Status: ${fullStatus}`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/${{ github.sha }}/`
+            ].join('\n');
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: summary
-            })
-        env:
-          JOB_STATUS: ${{ job.status }}
+              body
+            });
+
+      - name: Export Full URLs
+        id: full_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/full/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/full/firefox/" >> $GITHUB_OUTPUT
+          echo "dashboard_url=https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/" >> $GITHUB_OUTPUT
+
+      - name: Full report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Full: ${{ steps.full_urls.outputs.chromium_url }}"
+          echo "Firefox Full:  ${{ steps.full_urls.outputs.firefox_url }}"
+          echo "Full Status: ${{ steps.full_status.outputs.label }}"
+          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
+          {
+            echo "### Full report links";
+            echo "";
+            echo "- Chromium: ${{ steps.full_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.full_urls.outputs.firefox_url }}";
+            echo "";
+            echo "Full Status: ${{ steps.full_status.outputs.label }}";
+            echo "";
+            echo "### Main Dashboard";
+            echo "";
+            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+          } >> $GITHUB_STEP_SUMMARY
+
+  dashboard:
+    runs-on: ubuntu-latest
+    needs: [smoke, full]
+    steps:
+      - name: Checkout gh-pages to read existing files
+        run: |
+          git init ghp-read
+          cd ghp-read
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch --depth=1 origin gh-pages || true
+          git checkout gh-pages || echo "No gh-pages yet"
+          cd ..
+
+      - name: Debug list all PR dashboards from gh-pages
+        run: |
+          cd ghp-read
+          find pr -type f -path "pr/*/dashboard/*/index.html" -printf "%T@ %p\n" 2>/dev/null | sort -nr | cut -d' ' -f2- || true
+
+      - name: Create dynamic dashboard index (lists all PR dashboards by branch and commit, newest first, with status)
+        run: |
+          REPO_NAME="PythonPlaywright_Hudl"
+          mkdir -p dashboard
+          PR_LIST=$(cd ghp-read && find pr -type f -path "pr/*/dashboard/*/index.html" -printf "%T@ %p\n" 2>/dev/null | sort -nr | cut -d' ' -f2-)
+
+          cat > dashboard/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta charset="UTF-8" />
+              <title>Test Execution Dashboard</title>
+              <style>
+                  body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.5; }
+                  h1 { margin-bottom: 8px; }
+                  .muted { color: #666; margin-bottom: 24px; }
+                  .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
+                  .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; }
+                  .card h3 { margin-top: 0; }
+                  a.btn { display: inline-block; margin: 6px 0; padding: 8px 10px; background: #f5f5f5; text-decoration: none; border-radius: 6px; color: inherit; }
+                  a.btn:hover { background: #e9e9e9; }
+                  .list { margin-top: 4px; }
+                  .list a { display: block; margin: 4px 0; text-decoration: none; }
+                  .list a:hover { text-decoration: underline; }
+                  .empty { color: #999; font-style: italic; }
+                  .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+                  code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+                  .commit { font-size: 0.95em; color: #555; }
+                  .status-pass { color: green; font-weight: bold; }
+                  .status-fail { color: red; font-weight: bold; }
+              </style>
+          </head>
+          <body>
+              <h1>🚀 Test Execution Dashboard</h1>
+              <div class="muted">Updated: <code id="updated"></code></div>
+
+              <div class="grid">
+                  <div class="card">
+                      <h3>🔥 Main: Smoke Tests</h3>
+                      <a class="btn" href="/PythonPlaywright_Hudl/smoke/chromium/">Chromium Smoke</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/smoke/firefox/">Firefox Smoke</a>
+                  </div>
+                  <div class="card">
+                      <h3>🎯 Main: Full Tests</h3>
+                      <a class="btn" href="/PythonPlaywright_Hudl/full/chromium/">Chromium Full</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/full/firefox/">Firefox Full</a>
+                  </div>
+                  <div class="card" id="pr-card">
+                      <h3>🧪 PR Dashboards (by branch & commit, newest first)</h3>
+                      <div class="list" id="pr-list">
+                          <div class="empty">No PR dashboards published yet.</div>
+                      </div>
+                  </div>
+              </div>
+
+              <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard/&lt;commit&gt;.</div>
+
+              <script>
+                  document.getElementById('updated').textContent = new Date().toISOString();
+                  // Injected by the workflow:
+                  const PR_DASHBOARDS = [
+          EOF
+
+          if [ -n "$PR_LIST" ]; then
+            while IFS= read -r line; do
+              BRANCH=$(echo "$line" | sed -E 's#^pr/([^/]+)/dashboard/[^/]+/index.html$#\1#')
+              COMMIT=$(echo "$line" | sed -E 's#^pr/[^/]+/dashboard/([^/]+)/index.html$#\1#')
+              URL="/$REPO_NAME/$(dirname "$line")/"
+              STATUS="unknown"
+              STATUS_FILE="ghp-read/$(dirname "$line")/status.txt"
+              if [ -f "$STATUS_FILE" ]; then
+                STATUS=$(cat "$STATUS_FILE" | tr '[:upper:]' '[:lower:]')
+              fi
+              echo "                    { branch: \"$BRANCH\", commit: \"$COMMIT\", url: \"$URL\", status: \"$STATUS\" }," >> dashboard/index.html
+            done <<< "$PR_LIST"
+          fi
+
+          cat >> dashboard/index.html <<'EOF'
+                  ];
+                  // Group by branch
+                  const grouped = {};
+                  PR_DASHBOARDS.forEach(item => {
+                    if (!grouped[item.branch]) grouped[item.branch] = [];
+                    grouped[item.branch].push(item);
+                  });
+                  const prListEl = document.getElementById('pr-list');
+                  if (PR_DASHBOARDS.length > 0) {
+                      prListEl.innerHTML = '';
+                      Object.keys(grouped).forEach(branch => {
+                        const branchDiv = document.createElement('div');
+                        branchDiv.innerHTML = `<b>${branch}</b>`;
+                        grouped[branch].forEach(item => {
+                          const a = document.createElement('a');
+                          a.href = item.url;
+                          let statusClass = item.status === "pass" ? "status-pass" : (item.status === "fail" ? "status-fail" : "");
+                          a.innerHTML = `<span class="commit">${item.commit.slice(0,8)}</span> &rarr; dashboard <span class="${statusClass}">${item.status.toUpperCase()}</span>`;
+                          branchDiv.appendChild(a);
+                        });
+                        prListEl.appendChild(branchDiv);
+                      });
+                  }
+              </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Publish Dashboard Index to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: dashboard
+          keep_files: true

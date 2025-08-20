@@ -7,7 +7,7 @@ Advanced Testing Features
 
 - [x] **Visual regression testing** - Compare screenshots across test runs to catch UI changes
 - [x] **Network interception & mocking** - Mock API responses for consistent testing
-- [ ] **Performance monitoring** - Measure page load times, Core Web Vitals, and resource usage
+- [x] **Performance monitoring** - Measure page load times, Core Web Vitals, and resource usage
 - [ ] **Cross-browser parallel execution** - Run tests simultaneously across Chrome, Firefox, and Safari
 
 ## Automation Enhancements

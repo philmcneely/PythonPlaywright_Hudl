@@ -45,16 +45,12 @@ import pytest_asyncio
 import numpy as np
 from playwright.async_api import Page
 from PIL import Image, ImageChops
-
-# Directory configuration for visual regression files
-BASELINE_DIR = "test_artifacts/visual/visual_baselines"
-CURRENT_DIR = "test_artifacts/visual/visual_current"
-DIFF_DIR = "test_artifacts/visual/visual_diffs"
+from config.artifact_paths import VISUAL_DIFF_DIR, VISUAL_BASELINE_DIR, VISUAL_CURRENT_DIR
 
 # Ensure directories exist
-os.makedirs(BASELINE_DIR, exist_ok=True)
-os.makedirs(CURRENT_DIR, exist_ok=True)
-os.makedirs(DIFF_DIR, exist_ok=True)
+os.makedirs(VISUAL_BASELINE_DIR, exist_ok=True)
+os.makedirs(VISUAL_CURRENT_DIR, exist_ok=True)
+os.makedirs(VISUAL_DIFF_DIR, exist_ok=True)
 
 
 def compare_images(baseline_path, current_path, diff_path, tolerance=0.01):
@@ -126,9 +122,9 @@ def get_screenshot_paths(name):
     Returns:
         tuple: (baseline_path, current_path, diff_path)
     """
-    baseline_path = os.path.join(BASELINE_DIR, f"{name}.png")
-    current_path = os.path.join(CURRENT_DIR, f"{name}.png") 
-    diff_path = os.path.join(DIFF_DIR, f"{name}_diff.png")
+    baseline_path = os.path.join(VISUAL_BASELINE_DIR, f"{name}.png")
+    current_path = os.path.join(VISUAL_CURRENT_DIR, f"{name}.png") 
+    diff_path = os.path.join(VISUAL_DIFF_DIR, f"{name}_diff.png")
     
     return baseline_path, current_path, diff_path
 
@@ -244,7 +240,7 @@ def reset_baseline(name: str):
     Returns:
         bool: True if baseline was removed, False if it didn't exist
     """
-    baseline_path = os.path.join(BASELINE_DIR, f"{name}.png")
+    baseline_path = os.path.join(VISUAL_BASELINE_DIR, f"{name}.png")
     
     if os.path.exists(baseline_path):
         os.remove(baseline_path)
@@ -263,14 +259,14 @@ def reset_all_baselines():
     Returns:
         int: Number of baselines that were removed
     """
-    if not os.path.exists(BASELINE_DIR):
+    if not os.path.exists(VISUAL_BASELINE_DIR):
         print("⚠️  No baseline directory found")
         return 0
         
-    baselines = [f for f in os.listdir(BASELINE_DIR) if f.endswith('.png')]
+    baselines = [f for f in os.listdir(VISUAL_BASELINE_DIR) if f.endswith('.png')]
     
     for baseline in baselines:
-        os.remove(os.path.join(BASELINE_DIR, baseline))
+        os.remove(os.path.join(VISUAL_BASELINE_DIR, baseline))
         
     print(f"🗑️  Reset {len(baselines)} baselines")
     return len(baselines)
@@ -290,13 +286,13 @@ def list_visual_files():
         'diffs': []
     }
     
-    if os.path.exists(BASELINE_DIR):
-        result['baselines'] = [f for f in os.listdir(BASELINE_DIR) if f.endswith('.png')]
+    if os.path.exists(VISUAL_BASELINE_DIR):
+        result['baselines'] = [f for f in os.listdir(VISUAL_BASELINE_DIR) if f.endswith('.png')]
         
-    if os.path.exists(CURRENT_DIR):
-        result['current'] = [f for f in os.listdir(CURRENT_DIR) if f.endswith('.png')]
+    if os.path.exists(VISUAL_CURRENT_DIR):
+        result['current'] = [f for f in os.listdir(VISUAL_CURRENT_DIR) if f.endswith('.png')]
         
-    if os.path.exists(DIFF_DIR):
-        result['diffs'] = [f for f in os.listdir(DIFF_DIR) if f.endswith('.png')]
+    if os.path.exists(VISUAL_DIFF_DIR):
+        result['diffs'] = [f for f in os.listdir(VISUAL_DIFF_DIR) if f.endswith('.png')]
     
     return result

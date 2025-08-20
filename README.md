@@ -410,6 +410,16 @@ You can switch between local and BrowserStack runs by toggling the `BROWSERSTACK
 
 ---
 
+## 16. Performance measuring
+
+Please see docs in tests/performance/PERFORMANCE_TESTING.md
+
+```bash
+PERF_MONITOR=1 ENV=dev SKIP_SCREENSHOTS=1 HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m performance
+```
+
+---
+
 **Regenerate Docs for LLMs:**  
 This project makes use of OneFileLLM: https://github.com/jimmc414/onefilellm
 
@@ -505,3 +515,28 @@ python onefilellm.py /path/to/your/local/repo
 ---
 
 **Happy testing! 🚀**
+
+
+**To check all functions work fine**
+```bash
+#checks visual regression, you should have output in test_artifacts/visual/
+pytest tests/visual_regression/test_visual_regression.py -v
+
+#checks perf, you should have output in test_artifacts/performance/
+PERF_MONITOR=1 pytest -v tests/performance/perf_example.py
+PERF_MONITOR=1 pytest -v tests/performance/test_login_perf.py::test_login_direct_valid_credentials_then_logout_performance #checks perf with a real test
+pytest -v tests/performance/test_login_perf.py::test_login_direct_valid_credentials_then_logout_performance #makes sure when perf off tests work normal
+
+#makes sure ai healing works, you should have output in test_artifacts/ai
+AI_HEALING_ENABLED=true ENV=dev HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing #makes sure ai healing works
+
+#makes sure you can turn off screenshots, there should be no new screenshots placed in test_artifacts/allure/screenshots for this test
+ENV=dev SKIP_SCREENSHOTS=1 HEADLESS=false pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m trigger_ai_healing #makes sure screenshots are skipped
+
+#checks api mock test
+pytest tests/api/test_api_mocking.py -v
+
+#check browserstack
+BROWSERSTACK_ENABLED=true pytest --alluredir=test_artifacts/allure/allure-results --capture=tee-sys --reruns 2 --reruns-delay 5 -m smoke
+
+``` 
