@@ -1,35 +1,68 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8" />
     <title>Test Execution Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .card { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+        body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.5; }
+        h1 { margin-bottom: 8px; }
+        .muted { color: #666; margin-bottom: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(280px,1fr)); gap: 16px; }
+        .card { border: 1px solid #ddd; padding: 16px; border-radius: 8px; }
         .card h3 { margin-top: 0; }
-        .card a { display: block; margin: 10px 0; padding: 10px; background: #f5f5f5; text-decoration: none; border-radius: 4px; }
-        .card a:hover { background: #e5e5e5; }
+        a.btn { display: inline-block; margin: 6px 0; padding: 8px 10px; background: #f5f5f5; text-decoration: none; border-radius: 6px; color: inherit; }
+        a.btn:hover { background: #e9e9e9; }
+        .list { margin-top: 4px; }
+        .list a { display: block; margin: 4px 0; text-decoration: none; }
+        .list a:hover { text-decoration: underline; }
+        .empty { color: #999; font-style: italic; }
+        .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+        code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
     </style>
 </head>
 <body>
     <h1>🚀 Test Execution Dashboard</h1>
-    <p>Links to the latest published reports on GitHub Pages. PR runs appear under pr/&lt;branch&gt;.</p>
+    <div class="muted">Updated: <code id="updated"></code></div>
 
-    <div class="dashboard">
+    <div class="grid">
         <div class="card">
-            <h3>🔥 Smoke Tests</h3>
-            <a href="smoke/chromium/">Main: Chromium Smoke</a>
-            <a href="smoke/firefox/">Main: Firefox Smoke</a>
+            <h3>🔥 Main: Smoke Tests</h3>
+            <a class="btn" href="smoke/chromium/">Chromium Smoke</a>
+            <a class="btn" href="smoke/firefox/">Firefox Smoke</a>
         </div>
-
         <div class="card">
-            <h3>🎯 Full Test Suite</h3>
-            <a href="full/chromium/">Main: Chromium Full</a>
-            <a href="full/firefox/">Main: Firefox Full</a>
+            <h3>🎯 Main: Full Tests</h3>
+            <a class="btn" href="full/chromium/">Chromium Full</a>
+            <a class="btn" href="full/firefox/">Firefox Full</a>
+        </div>
+        <div class="card" id="pr-card">
+            <h3>🧪 PR Dashboards</h3>
+            <div class="list" id="pr-list">
+                <div class="empty">No PR dashboards published yet.</div>
+            </div>
         </div>
     </div>
 
-    <hr style="margin: 40px 0;">
-    <p><small>Updated: Wed Aug 20 00:34:36 UTC 2025</small></p>
+    <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard.</div>
+
+    <script>
+        document.getElementById('updated').textContent = new Date().toISOString();
+
+        // Injected by the workflow:
+        const PR_DASHBOARDS = [
+                    { branch: "\1", url: "/pr/JIRA-2346_add_perf_metrics/dashboard/" },
+        ];
+
+        const prListEl = document.getElementById('pr-list');
+        if (PR_DASHBOARDS.length > 0) {
+            prListEl.innerHTML = '';
+            PR_DASHBOARDS.forEach(item => {
+                const a = document.createElement('a');
+                a.href = item.url;
+                a.textContent = item.branch;
+                prListEl.appendChild(a);
+            });
+        }
+    </script>
 </body>
 </html>
