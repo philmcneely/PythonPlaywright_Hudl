@@ -789,7 +789,7 @@ jobs:
           keep_files: true
 
   # Optional: Create a dashboard index page
- dashboard:
+  dashboard:
     runs-on: ubuntu-latest
     needs: [smoke, full]
     steps:
