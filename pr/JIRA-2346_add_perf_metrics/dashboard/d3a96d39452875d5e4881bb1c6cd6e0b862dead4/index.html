@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PR Test Dashboard</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: Arial, Helvetica, sans-serif; margin: 40px; line-height: 1.45; }
+    h1 { margin-bottom: 10px; }
+    .muted { color: #888; font-size: 0.95rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 24px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 18px; }
+    .card h3 { margin-top: 0; margin-bottom: 10px; }
+    a.btn { display: block; margin: 8px 0; padding: 10px 12px; text-decoration: none; border-radius: 6px; background: #f5f5f5; color: inherit; }
+    a.btn:hover { background: #e9e9e9; }
+    .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+    code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>PR Test Dashboard</h1>
+  <div class="muted">
+    Branch: <code id="branch"></code> · Run: <code id="run"></code> · Commit: <code id="sha"></code>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🔥 Smoke Tests</h3>
+      <a id="smoke-chromium" class="btn" href="#">Chromium Smoke</a>
+      <a id="smoke-firefox" class="btn" href="#">Firefox Smoke</a>
+    </div>
+    <div class="card">
+      <h3>🎯 Full Test Suite</h3>
+      <a id="full-chromium" class="btn" href="#">Chromium Full</a>
+      <a id="full-firefox" class="btn" href="#">Firefox Full</a>
+    </div>
+  </div>
+
+  <div class="footer">
+    Main dashboard: <a id="main-dashboard" href="#">View</a>
+  </div>
+
+  <script>
+    (function () {
+      const BASE = "https://philmcneely.github.io/PythonPlaywright_Hudl/pr/JIRA-2346_add_perf_metrics";
+      const branch = "JIRA-2346_add_perf_metrics";
+      const runId = "17100861126";
+      const sha = "d3a96d39452875d5e4881bb1c6cd6e0b862dead4";
+
+      document.getElementById('branch').textContent = branch;
+      document.getElementById('run').textContent = runId;
+      document.getElementById('sha').textContent = sha.slice(0, 9);
+
+      document.getElementById('smoke-chromium').href = BASE + "/smoke/chromium/";
+      document.getElementById('smoke-firefox').href = BASE + "/smoke/firefox/";
+      document.getElementById('full-chromium').href = BASE + "/full/chromium/";
+      document.getElementById('full-firefox').href = BASE + "/full/firefox/";
+      document.getElementById('main-dashboard').href = "https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+    })();
+  </script>
+</body>
+</html>
