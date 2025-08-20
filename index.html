@@ -18,6 +18,7 @@
         .empty { color: #999; font-style: italic; }
         .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
         code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+        .commit { font-size: 0.95em; color: #555; }
     </style>
 </head>
 <body>
@@ -27,37 +28,49 @@
     <div class="grid">
         <div class="card">
             <h3>🔥 Main: Smoke Tests</h3>
-            <a class="btn" href="/smoke/chromium/">Chromium Smoke</a>
-            <a class="btn" href="/smoke/firefox/">Firefox Smoke</a>
+            <a class="btn" href="/PythonPlaywright_Hudl/smoke/chromium/">Chromium Smoke</a>
+            <a class="btn" href="/PythonPlaywright_Hudl/smoke/firefox/">Firefox Smoke</a>
         </div>
         <div class="card">
             <h3>🎯 Main: Full Tests</h3>
-            <a class="btn" href="/full/chromium/">Chromium Full</a>
-            <a class="btn" href="/full/firefox/">Firefox Full</a>
+            <a class="btn" href="/PythonPlaywright_Hudl/full/chromium/">Chromium Full</a>
+            <a class="btn" href="/PythonPlaywright_Hudl/full/firefox/">Firefox Full</a>
         </div>
         <div class="card" id="pr-card">
-            <h3>🧪 PR Dashboards</h3>
+            <h3>🧪 PR Dashboards (by branch & commit)</h3>
             <div class="list" id="pr-list">
                 <div class="empty">No PR dashboards published yet.</div>
             </div>
         </div>
     </div>
 
-    <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard.</div>
+    <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard/&lt;commit&gt;.</div>
 
     <script>
         document.getElementById('updated').textContent = new Date().toISOString();
+        // Injected by the workflow:
         const PR_DASHBOARDS = [
-                    { branch: "\1", url: "/pr/JIRA-2346_add_perf_metrics/dashboard/" },
+                    { branch: "JIRA-2346_add_perf_metrics", commit: "4eb8de29884f8738e045b2aef60c2c7b99a6fe0e", url: "/PythonPlaywright_Hudl/pr/JIRA-2346_add_perf_metrics/dashboard/4eb8de29884f8738e045b2aef60c2c7b99a6fe0e/" },
         ];
+        // Group by branch
+        const grouped = {};
+        PR_DASHBOARDS.forEach(item => {
+          if (!grouped[item.branch]) grouped[item.branch] = [];
+          grouped[item.branch].push(item);
+        });
         const prListEl = document.getElementById('pr-list');
         if (PR_DASHBOARDS.length > 0) {
             prListEl.innerHTML = '';
-            PR_DASHBOARDS.forEach(item => {
+            Object.keys(grouped).sort().forEach(branch => {
+              const branchDiv = document.createElement('div');
+              branchDiv.innerHTML = `<b>${branch}</b>`;
+              grouped[branch].sort((a, b) => b.commit.localeCompare(a.commit)).forEach(item => {
                 const a = document.createElement('a');
                 a.href = item.url;
-                a.textContent = item.branch;
-                prListEl.appendChild(a);
+                a.innerHTML = `<span class="commit">${item.commit.slice(0,8)}</span> &rarr; dashboard`;
+                branchDiv.appendChild(a);
+              });
+              prListEl.appendChild(branchDiv);
             });
         }
     </script>
