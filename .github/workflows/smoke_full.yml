@@ -422,7 +422,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: pr_dashboard
-          destination_dir: pr/${{ github.head_ref }}/dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
           keep_files: true
 
   full:
@@ -779,17 +779,17 @@ jobs:
           sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
           sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
 
-      - name: Publish PR mini-dashboard (full job)
+      - name: Publish PR mini-dashboard
         if: github.event_name == 'pull_request'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: pr_dashboard
-          destination_dir: pr/${{ github.head_ref }}/dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard/${{ github.sha }}
           keep_files: true
 
   # Optional: Create a dashboard index page
-  dashboard:  
+  dashboard:
     runs-on: ubuntu-latest
     needs: [smoke, full]
     steps:
@@ -802,20 +802,16 @@ jobs:
           git checkout gh-pages || echo "No gh-pages yet"
           cd ..
 
-      - name: Debug list pr dashboards from gh-pages
+      - name: Debug list all PR dashboards from gh-pages
         run: |
           cd ghp-read
-          echo "Top-level:"
-          ls -la || true
-          echo "PR directories:"
-          ls -la pr || true
-          echo "All dashboards found:"
-          find pr -type f -path "pr/*/dashboard/index.html" -print 2>/dev/null || true
+          find pr -type f -path "pr/*/dashboard/*/index.html" -print 2>/dev/null || true
 
-      - name: Create dynamic dashboard index (lists PR dashboards)
+      - name: Create dynamic dashboard index (lists all PR dashboards by branch and commit)
         run: |
+          REPO_NAME="PythonPlaywright_Hudl"
           mkdir -p dashboard
-          PR_LIST=$(cd ghp-read && find pr -type f -path "pr/*/dashboard/index.html" 2>/dev/null | sed 's#/index.html$##' | sort || true)
+          PR_LIST=$(cd ghp-read && find pr -type f -path "pr/*/dashboard/*/index.html" 2>/dev/null | sort || true)
 
           cat > dashboard/index.html <<'EOF'
           <!DOCTYPE html>
@@ -838,6 +834,7 @@ jobs:
                   .empty { color: #999; font-style: italic; }
                   .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
                   code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+                  .commit { font-size: 0.95em; color: #555; }
               </style>
           </head>
           <body>
@@ -847,47 +844,62 @@ jobs:
               <div class="grid">
                   <div class="card">
                       <h3>🔥 Main: Smoke Tests</h3>
-                      <a class="btn" href="/smoke/chromium/">Chromium Smoke</a>
-                      <a class="btn" href="/smoke/firefox/">Firefox Smoke</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/smoke/chromium/">Chromium Smoke</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/smoke/firefox/">Firefox Smoke</a>
                   </div>
                   <div class="card">
                       <h3>🎯 Main: Full Tests</h3>
-                      <a class="btn" href="/full/chromium/">Chromium Full</a>
-                      <a class="btn" href="/full/firefox/">Firefox Full</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/full/chromium/">Chromium Full</a>
+                      <a class="btn" href="/PythonPlaywright_Hudl/full/firefox/">Firefox Full</a>
                   </div>
                   <div class="card" id="pr-card">
-                      <h3>🧪 PR Dashboards</h3>
+                      <h3>🧪 PR Dashboards (by branch & commit)</h3>
                       <div class="list" id="pr-list">
                           <div class="empty">No PR dashboards published yet.</div>
                       </div>
                   </div>
               </div>
 
-              <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard.</div>
+              <div class="footer">Note: PR dashboards are under pr/&lt;branch&gt;/dashboard/&lt;commit&gt;.</div>
 
               <script>
                   document.getElementById('updated').textContent = new Date().toISOString();
+                  // Injected by the workflow:
                   const PR_DASHBOARDS = [
           EOF
 
+          # Build a JS array of { branch, commit, url }
           if [ -n "$PR_LIST" ]; then
             while IFS= read -r line; do
-              BRANCH=$(echo "$line" | sed -E 's#^pr/([^/]+)/dashboard$#\\1#')
-              URL=$(echo "$line" | sed -E 's#^#/#')
-              echo "                    { branch: \"$BRANCH\", url: \"$URL/\" }," >> dashboard/index.html
+              # line: pr/<branch>/dashboard/<sha>/index.html
+              BRANCH=$(echo "$line" | sed -E 's#^pr/([^/]+)/dashboard/[^/]+/index.html$#\1#')
+              COMMIT=$(echo "$line" | sed -E 's#^pr/[^/]+/dashboard/([^/]+)/index.html$#\1#')
+              URL="/$REPO_NAME/$(dirname "$line")/"
+              echo "                    { branch: \"$BRANCH\", commit: \"$COMMIT\", url: \"$URL\" }," >> dashboard/index.html
             done <<< "$PR_LIST"
           fi
 
           cat >> dashboard/index.html <<'EOF'
                   ];
+                  // Group by branch
+                  const grouped = {};
+                  PR_DASHBOARDS.forEach(item => {
+                    if (!grouped[item.branch]) grouped[item.branch] = [];
+                    grouped[item.branch].push(item);
+                  });
                   const prListEl = document.getElementById('pr-list');
                   if (PR_DASHBOARDS.length > 0) {
                       prListEl.innerHTML = '';
-                      PR_DASHBOARDS.forEach(item => {
+                      Object.keys(grouped).sort().forEach(branch => {
+                        const branchDiv = document.createElement('div');
+                        branchDiv.innerHTML = `<b>${branch}</b>`;
+                        grouped[branch].sort((a, b) => b.commit.localeCompare(a.commit)).forEach(item => {
                           const a = document.createElement('a');
                           a.href = item.url;
-                          a.textContent = item.branch;
-                          prListEl.appendChild(a);
+                          a.innerHTML = `<span class="commit">${item.commit.slice(0,8)}</span> &rarr; dashboard`;
+                          branchDiv.appendChild(a);
+                        });
+                        prListEl.appendChild(branchDiv);
                       });
                   }
               </script>
