@@ -789,7 +789,7 @@ jobs:
           keep_files: true
 
   # Optional: Create a dashboard index page
-  dashboard:
+  dashboard:  
     runs-on: ubuntu-latest
     needs: [smoke, full]
     steps:
@@ -802,10 +802,19 @@ jobs:
           git checkout gh-pages || echo "No gh-pages yet"
           cd ..
 
+      - name: Debug list pr dashboards from gh-pages
+        run: |
+          cd ghp-read
+          echo "Top-level:"
+          ls -la || true
+          echo "PR directories:"
+          ls -la pr || true
+          echo "All dashboards found:"
+          find pr -type f -path "pr/*/dashboard/index.html" -print 2>/dev/null || true
+
       - name: Create dynamic dashboard index (lists PR dashboards)
         run: |
           mkdir -p dashboard
-          # Collect PR dashboards
           PR_LIST=$(cd ghp-read && find pr -type f -path "pr/*/dashboard/index.html" 2>/dev/null | sed 's#/index.html$##' | sort || true)
 
           cat > dashboard/index.html <<'EOF'
@@ -838,13 +847,13 @@ jobs:
               <div class="grid">
                   <div class="card">
                       <h3>🔥 Main: Smoke Tests</h3>
-                      <a class="btn" href="smoke/chromium/">Chromium Smoke</a>
-                      <a class="btn" href="smoke/firefox/">Firefox Smoke</a>
+                      <a class="btn" href="/smoke/chromium/">Chromium Smoke</a>
+                      <a class="btn" href="/smoke/firefox/">Firefox Smoke</a>
                   </div>
                   <div class="card">
                       <h3>🎯 Main: Full Tests</h3>
-                      <a class="btn" href="full/chromium/">Chromium Full</a>
-                      <a class="btn" href="full/firefox/">Firefox Full</a>
+                      <a class="btn" href="/full/chromium/">Chromium Full</a>
+                      <a class="btn" href="/full/firefox/">Firefox Full</a>
                   </div>
                   <div class="card" id="pr-card">
                       <h3>🧪 PR Dashboards</h3>
@@ -858,15 +867,11 @@ jobs:
 
               <script>
                   document.getElementById('updated').textContent = new Date().toISOString();
-
-                  // Injected by the workflow:
                   const PR_DASHBOARDS = [
           EOF
 
-          # Append PR entries as JSON strings
           if [ -n "$PR_LIST" ]; then
             while IFS= read -r line; do
-              # line like: pr/feature-xyz/dashboard
               BRANCH=$(echo "$line" | sed -E 's#^pr/([^/]+)/dashboard$#\\1#')
               URL=$(echo "$line" | sed -E 's#^#/#')
               echo "                    { branch: \"$BRANCH\", url: \"$URL/\" }," >> dashboard/index.html
@@ -875,7 +880,6 @@ jobs:
 
           cat >> dashboard/index.html <<'EOF'
                   ];
-
                   const prListEl = document.getElementById('pr-list');
                   if (PR_DASHBOARDS.length > 0) {
                       prListEl.innerHTML = '';
