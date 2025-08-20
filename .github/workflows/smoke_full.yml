@@ -195,6 +195,7 @@ jobs:
           fi
 
       - name: Run chromium smoke tests
+        id: run_smoke
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
@@ -230,6 +231,18 @@ jobs:
           publish_dir: test_artifacts/allure/allure-report/history
           destination_dir: ${{ steps.paths.outputs.CHROMIUM_PATH }}/history
           keep_files: true
+
+      - name: Compute Smoke Status
+        if: always()
+        id: smoke_status
+        run: |
+          if [ "${{ steps.run_smoke.outcome }}" = "success" ]; then
+            echo "label=✅ PASS" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
 
       # ---------- Smoke Firefox ----------
       - name: Restore history from gh-pages (smoke-firefox)
@@ -283,10 +296,13 @@ jobs:
           script: |
             const branch = context.payload.pull_request.head.ref;
             const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const smokeStatus = `${{ toJSON(steps.smoke_status.outputs.label) }}`;
             const body = [
               `✅ Smoke reports published:`,
               `- Chromium: ${baseUrl}/smoke/chromium/`,
               `- Firefox: ${baseUrl}/smoke/firefox/`,
+              ``,
+              `Status: ${smokeStatus}`,
               ``,
               `📊 PR Dashboard: ${baseUrl}/dashboard/`
             ].join('\n');
@@ -313,16 +329,14 @@ jobs:
         run: |
           echo "Chromium Smoke: ${{ steps.smoke_urls.outputs.chromium_url }}"
           echo "Firefox Smoke:  ${{ steps.smoke_urls.outputs.firefox_url }}"
-          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
+          echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}"
           {
             echo "### Smoke report links";
             echo "";
             echo "- Chromium: ${{ steps.smoke_urls.outputs.chromium_url }}";
             echo "- Firefox:  ${{ steps.smoke_urls.outputs.firefox_url }}";
             echo "";
-            echo "### Main Dashboard";
-            echo "";
-            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+            echo "Smoke Status: ${{ steps.smoke_status.outputs.label }}";
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Build PR mini-dashboard
@@ -530,6 +544,7 @@ jobs:
           fi
 
       - name: Run chromium full test suite
+        id: run_full
         run: |
           mkdir -p test_artifacts/allure/allure-report
           mkdir -p test_artifacts/allure/allure-results/history
@@ -549,6 +564,14 @@ jobs:
         if: always()
         run: |
           allure generate test_artifacts/allure/allure-results -o test_artifacts/allure/allure-report --clean --single-file
+
+      - name: Debug list Full Chromium report dir
+        if: always()
+        run: |
+          echo "Listing allure-results:"
+          ls -la test_artifacts/allure/allure-results || true
+          echo "Listing allure-report:"
+          ls -la test_artifacts/allure/allure-report || true
 
       - name: Publish Full Report (Chromium) + History to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
@@ -611,6 +634,18 @@ jobs:
           destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
           keep_files: true
 
+      - name: Compute Full Status
+        if: always()
+        id: full_status
+        run: |
+          if [ "${{ steps.run_full.outcome }}" = "success" ]; then
+            echo "label=✅ PASS" >> $GITHUB_OUTPUT
+            echo "emoji=✅" >> $GITHUB_OUTPUT
+          else
+            echo "label=❌ FAIL" >> $GITHUB_OUTPUT
+            echo "emoji=❌" >> $GITHUB_OUTPUT
+          fi
+
       - name: Comment PR with Full report links
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
@@ -618,10 +653,13 @@ jobs:
           script: |
             const branch = context.payload.pull_request.head.ref;
             const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const fullStatus = `${{ toJSON(steps.full_status.outputs.label) }}`;
             const body = [
               `📊 Full reports published:`,
               `- Chromium: ${baseUrl}/full/chromium/`,
               `- Firefox: ${baseUrl}/full/firefox/`,
+              ``,
+              `Status: ${fullStatus}`,
               ``,
               `📊 PR Dashboard: ${baseUrl}/dashboard/`
             ].join('\n');
@@ -649,12 +687,15 @@ jobs:
         run: |
           echo "Chromium Full: ${{ steps.full_urls.outputs.chromium_url }}"
           echo "Firefox Full:  ${{ steps.full_urls.outputs.firefox_url }}"
+          echo "Full Status: ${{ steps.full_status.outputs.label }}"
           echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
           {
             echo "### Full report links";
             echo "";
             echo "- Chromium: ${{ steps.full_urls.outputs.chromium_url }}";
             echo "- Firefox:  ${{ steps.full_urls.outputs.firefox_url }}";
+            echo "";
+            echo "Full Status: ${{ steps.full_status.outputs.label }}";
             echo "";
             echo "### Main Dashboard";
             echo "";
