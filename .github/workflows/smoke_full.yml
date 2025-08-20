@@ -276,10 +276,149 @@ jobs:
           destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
           keep_files: true
 
+      - name: Comment PR with Smoke report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const body = [
+              `✅ Smoke reports published:`,
+              `- Chromium: ${baseUrl}/smoke/chromium/`,
+              `- Firefox: ${baseUrl}/smoke/firefox/`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/`
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Export Smoke URLs
+        id: smoke_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/smoke/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/smoke/firefox/" >> $GITHUB_OUTPUT
+
+      - name: Smoke report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Smoke: ${{ steps.smoke_urls.outputs.chromium_url }}"
+          echo "Firefox Smoke:  ${{ steps.smoke_urls.outputs.firefox_url }}"
+          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
+          {
+            echo "### Smoke report links";
+            echo "";
+            echo "- Chromium: ${{ steps.smoke_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.smoke_urls.outputs.firefox_url }}";
+            echo "";
+            echo "### Main Dashboard";
+            echo "";
+            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Build PR mini-dashboard
+        if: github.event_name == 'pull_request'
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
+          mkdir -p pr_dashboard
+          cat > pr_dashboard/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>PR Test Dashboard</title>
+            <style>
+              :root { color-scheme: light dark; }
+              body { font-family: Arial, Helvetica, sans-serif; margin: 40px; line-height: 1.45; }
+              h1 { margin-bottom: 10px; }
+              .muted { color: #888; font-size: 0.95rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 24px; }
+              .card { border: 1px solid #ddd; border-radius: 10px; padding: 18px; }
+              .card h3 { margin-top: 0; margin-bottom: 10px; }
+              a.btn { display: block; margin: 8px 0; padding: 10px 12px; text-decoration: none; border-radius: 6px; background: #f5f5f5; color: inherit; }
+              a.btn:hover { background: #e9e9e9; }
+              .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+              code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>PR Test Dashboard</h1>
+            <div class="muted">
+              Branch: <code id="branch"></code> · Run: <code id="run"></code> · Commit: <code id="sha"></code>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <h3>🔥 Smoke Tests</h3>
+                <a id="smoke-chromium" class="btn" href="#">Chromium Smoke</a>
+                <a id="smoke-firefox" class="btn" href="#">Firefox Smoke</a>
+              </div>
+              <div class="card">
+                <h3>🎯 Full Test Suite</h3>
+                <a id="full-chromium" class="btn" href="#">Chromium Full</a>
+                <a id="full-firefox" class="btn" href="#">Firefox Full</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              Main dashboard: <a id="main-dashboard" href="#">View</a>
+            </div>
+
+            <script>
+              (function () {
+                const BASE = "{{BASE_URL}}";
+                const branch = "{{BRANCH}}";
+                const runId = "{{RUN_ID}}";
+                const sha = "{{SHA}}";
+
+                document.getElementById('branch').textContent = branch;
+                document.getElementById('run').textContent = runId;
+                document.getElementById('sha').textContent = sha.slice(0, 9);
+
+                document.getElementById('smoke-chromium').href = BASE + "/smoke/chromium/";
+                document.getElementById('smoke-firefox').href = BASE + "/smoke/firefox/";
+                document.getElementById('full-chromium').href = BASE + "/full/chromium/";
+                document.getElementById('full-firefox').href = BASE + "/full/firefox/";
+                document.getElementById('main-dashboard').href = "https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+              })();
+            </script>
+          </body>
+          </html>
+          EOF
+          # Inject dynamic vars
+          sed -i "s|{{BASE_URL}}|${BASE_URL}|g" pr_dashboard/index.html
+          sed -i "s|{{BRANCH}}|${BRANCH}|g" pr_dashboard/index.html
+          sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
+          sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
+
+      - name: Publish PR mini-dashboard
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: pr_dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard
+          keep_files: true
+
   full:
     runs-on: ubuntu-latest
     needs: [setup, smoke]
     timeout-minutes: 60
+    outputs:
+      chromium_url: ${{ steps.full_urls.outputs.chromium_url }}
+      firefox_url: ${{ steps.full_urls.outputs.firefox_url }}
+      dashboard_url: ${{ steps.full_urls.outputs.dashboard_url }}
     env:
       USER_PM_EMAIL: ${{ secrets.USER_PM_EMAIL }}
       USER_PM_PASSWORD: ${{ secrets.USER_PM_PASSWORD }}
@@ -470,6 +609,142 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: test_artifacts/allure/allure-report/history
           destination_dir: ${{ steps.paths.outputs.FIREFOX_PATH }}/history
+          keep_files: true
+
+      - name: Comment PR with Full report links
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = context.payload.pull_request.head.ref;
+            const baseUrl = `https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${branch}`;
+            const body = [
+              `📊 Full reports published:`,
+              `- Chromium: ${baseUrl}/full/chromium/`,
+              `- Firefox: ${baseUrl}/full/firefox/`,
+              ``,
+              `📊 PR Dashboard: ${baseUrl}/dashboard/`
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+      - name: Export Full URLs
+        id: full_urls
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${{ github.head_ref }}"
+          else
+            BASE="https://philmcneely.github.io/PythonPlaywright_Hudl"
+          fi
+          echo "chromium_url=$BASE/full/chromium/" >> $GITHUB_OUTPUT
+          echo "firefox_url=$BASE/full/firefox/" >> $GITHUB_OUTPUT
+          echo "dashboard_url=https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/" >> $GITHUB_OUTPUT
+
+      - name: Full report links (summary)
+        if: always()
+        run: |
+          echo "Chromium Full: ${{ steps.full_urls.outputs.chromium_url }}"
+          echo "Firefox Full:  ${{ steps.full_urls.outputs.firefox_url }}"
+          echo "Main Dashboard: https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/"
+          {
+            echo "### Full report links";
+            echo "";
+            echo "- Chromium: ${{ steps.full_urls.outputs.chromium_url }}";
+            echo "- Firefox:  ${{ steps.full_urls.outputs.firefox_url }}";
+            echo "";
+            echo "### Main Dashboard";
+            echo "";
+            echo "- https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Build PR mini-dashboard (full job)
+        if: github.event_name == 'pull_request'
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          BASE_URL="https://philmcneely.github.io/PythonPlaywright_Hudl/pr/${BRANCH}"
+          mkdir -p pr_dashboard
+          cat > pr_dashboard/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>PR Test Dashboard</title>
+            <style>
+              :root { color-scheme: light dark; }
+              body { font-family: Arial, Helvetica, sans-serif; margin: 40px; line-height: 1.45; }
+              h1 { margin-bottom: 10px; }
+              .muted { color: #888; font-size: 0.95rem; }
+              .grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 16px; margin-top: 24px; }
+              .card { border: 1px solid #ddd; border-radius: 10px; padding: 18px; }
+              .card h3 { margin-top: 0; margin-bottom: 10px; }
+              a.btn { display: block; margin: 8px 0; padding: 10px 12px; text-decoration: none; border-radius: 6px; background: #f5f5f5; color: inherit; }
+              a.btn:hover { background: #e9e9e9; }
+              .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
+              code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
+            </style>
+          </head>
+          <body>
+            <h1>PR Test Dashboard</h1>
+            <div class="muted">
+              Branch: <code id="branch"></code> · Run: <code id="run"></code> · Commit: <code id="sha"></code>
+            </div>
+
+            <div class="grid">
+              <div class="card">
+                <h3>🔥 Smoke Tests</h3>
+                <a id="smoke-chromium" class="btn" href="#">Chromium Smoke</a>
+                <a id="smoke-firefox" class="btn" href="#">Firefox Smoke</a>
+              </div>
+              <div class="card">
+                <h3>🎯 Full Test Suite</h3>
+                <a id="full-chromium" class="btn" href="#">Chromium Full</a>
+                <a id="full-firefox" class="btn" href="#">Firefox Full</a>
+              </div>
+            </div>
+
+            <div class="footer">
+              Main dashboard: <a id="main-dashboard" href="#">View</a>
+            </div>
+
+            <script>
+              (function () {
+                const BASE = "{{BASE_URL}}";
+                const branch = "{{BRANCH}}";
+                const runId = "{{RUN_ID}}";
+                const sha = "{{SHA}}";
+
+                document.getElementById('branch').textContent = branch;
+                document.getElementById('run').textContent = runId;
+                document.getElementById('sha').textContent = sha.slice(0, 9);
+
+                document.getElementById('smoke-chromium').href = BASE + "/smoke/chromium/";
+                document.getElementById('smoke-firefox').href = BASE + "/smoke/firefox/";
+                document.getElementById('full-chromium').href = BASE + "/full/chromium/";
+                document.getElementById('full-firefox').href = BASE + "/full/firefox/";
+                document.getElementById('main-dashboard').href = "https://philmcneely.github.io/PythonPlaywright_Hudl/dashboard/";
+              })();
+            </script>
+          </body>
+          </html>
+          EOF
+          # Inject dynamic vars
+          sed -i "s|{{BASE_URL}}|${BASE_URL}|g" pr_dashboard/index.html
+          sed -i "s|{{BRANCH}}|${BRANCH}|g" pr_dashboard/index.html
+          sed -i "s|{{RUN_ID}}|${GITHUB_RUN_ID}|g" pr_dashboard/index.html
+          sed -i "s|{{SHA}}|${GITHUB_SHA}|g" pr_dashboard/index.html
+
+      - name: Publish PR mini-dashboard (full job)
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: pr_dashboard
+          destination_dir: pr/${{ github.head_ref }}/dashboard
           keep_files: true
 
   # Optional: Create a dashboard index page
