@@ -19,6 +19,8 @@
         .footer { margin-top: 32px; font-size: 0.9rem; color: #777; }
         code { background: #00000010; padding: 2px 6px; border-radius: 4px; }
         .commit { font-size: 0.95em; color: #555; }
+        .status-pass { color: green; font-weight: bold; }
+        .status-fail { color: red; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -37,7 +39,7 @@
             <a class="btn" href="/PythonPlaywright_Hudl/full/firefox/">Firefox Full</a>
         </div>
         <div class="card" id="pr-card">
-            <h3>🧪 PR Dashboards (by branch & commit)</h3>
+            <h3>🧪 PR Dashboards (by branch & commit, newest first)</h3>
             <div class="list" id="pr-list">
                 <div class="empty">No PR dashboards published yet.</div>
             </div>
@@ -50,7 +52,8 @@
         document.getElementById('updated').textContent = new Date().toISOString();
         // Injected by the workflow:
         const PR_DASHBOARDS = [
-                    { branch: "JIRA-2346_add_perf_metrics", commit: "4eb8de29884f8738e045b2aef60c2c7b99a6fe0e", url: "/PythonPlaywright_Hudl/pr/JIRA-2346_add_perf_metrics/dashboard/4eb8de29884f8738e045b2aef60c2c7b99a6fe0e/" },
+                    { branch: "JIRA-2346_add_perf_metrics", commit: "d3a96d39452875d5e4881bb1c6cd6e0b862dead4", url: "/PythonPlaywright_Hudl/pr/JIRA-2346_add_perf_metrics/dashboard/d3a96d39452875d5e4881bb1c6cd6e0b862dead4/", status: "pass" },
+                    { branch: "JIRA-2346_add_perf_metrics", commit: "4eb8de29884f8738e045b2aef60c2c7b99a6fe0e", url: "/PythonPlaywright_Hudl/pr/JIRA-2346_add_perf_metrics/dashboard/4eb8de29884f8738e045b2aef60c2c7b99a6fe0e/", status: "unknown" },
         ];
         // Group by branch
         const grouped = {};
@@ -61,13 +64,14 @@
         const prListEl = document.getElementById('pr-list');
         if (PR_DASHBOARDS.length > 0) {
             prListEl.innerHTML = '';
-            Object.keys(grouped).sort().forEach(branch => {
+            Object.keys(grouped).forEach(branch => {
               const branchDiv = document.createElement('div');
               branchDiv.innerHTML = `<b>${branch}</b>`;
-              grouped[branch].sort((a, b) => b.commit.localeCompare(a.commit)).forEach(item => {
+              grouped[branch].forEach(item => {
                 const a = document.createElement('a');
                 a.href = item.url;
-                a.innerHTML = `<span class="commit">${item.commit.slice(0,8)}</span> &rarr; dashboard`;
+                let statusClass = item.status === "pass" ? "status-pass" : (item.status === "fail" ? "status-fail" : "");
+                a.innerHTML = `<span class="commit">${item.commit.slice(0,8)}</span> &rarr; dashboard <span class="${statusClass}">${item.status.toUpperCase()}</span>`;
                 branchDiv.appendChild(a);
               });
               prListEl.appendChild(branchDiv);
