@@ -27,13 +27,13 @@
     <div class="grid">
         <div class="card">
             <h3>🔥 Main: Smoke Tests</h3>
-            <a class="btn" href="smoke/chromium/">Chromium Smoke</a>
-            <a class="btn" href="smoke/firefox/">Firefox Smoke</a>
+            <a class="btn" href="/smoke/chromium/">Chromium Smoke</a>
+            <a class="btn" href="/smoke/firefox/">Firefox Smoke</a>
         </div>
         <div class="card">
             <h3>🎯 Main: Full Tests</h3>
-            <a class="btn" href="full/chromium/">Chromium Full</a>
-            <a class="btn" href="full/firefox/">Firefox Full</a>
+            <a class="btn" href="/full/chromium/">Chromium Full</a>
+            <a class="btn" href="/full/firefox/">Firefox Full</a>
         </div>
         <div class="card" id="pr-card">
             <h3>🧪 PR Dashboards</h3>
@@ -47,12 +47,9 @@
 
     <script>
         document.getElementById('updated').textContent = new Date().toISOString();
-
-        // Injected by the workflow:
         const PR_DASHBOARDS = [
                     { branch: "\1", url: "/pr/JIRA-2346_add_perf_metrics/dashboard/" },
         ];
-
         const prListEl = document.getElementById('pr-list');
         if (PR_DASHBOARDS.length > 0) {
             prListEl.innerHTML = '';
